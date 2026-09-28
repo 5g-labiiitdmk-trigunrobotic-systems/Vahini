@@ -239,6 +239,9 @@ async function initTracker() {
 
   // Tick countdown every second
   setInterval(updateNextBusCountdown, 1000);
+
+  // Auto-fetch fresh GPS data every 3 seconds
+  setInterval(() => refreshData(false), 3000);
 }
 
 function updateNextBusCountdown() {

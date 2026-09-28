@@ -2,7 +2,7 @@
   "name": "campus-bus-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Live campus bus GPS ingest, student auth, and realtime updates",
+  "description": "Live campus bus GPS ingestion and real-time public transit tracker",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -12,11 +12,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",
-    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^17.4.2",
     "express": "^4.21.2",
-    "jsonwebtoken": "^9.0.2",
     "socket.io": "^4.8.1"
   }
 }

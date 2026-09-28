@@ -84,7 +84,7 @@ Live bus tracking is powered by the **Onelap Micro GPS** hardware tracker instal
    ONELAP_PASSWORD=your_onelap_password
    ONELAP_DEVICE_ID=115491
    ONELAP_BUS_ID=BUS-01
-   ONELAP_POLL_INTERVAL_MS=5000
+   ONELAP_POLL_INTERVAL_MS=3000
    ```
 2. Test connection and view live GPS diagnostics:
    ```powershell
@@ -102,3 +102,31 @@ cd server
 npm run simulate
 ```
 
+## 6. Folder Structure  
+campus-bus/
+├── .gitignore
+├── package.json
+├── vercel.json
+├── README.md
+└── server/
+    ├── .env
+    ├── .env.example
+    ├── package.json
+    ├── public/
+    │   ├── index.html
+    │   ├── assets/logo.jpg
+    │   ├── css/app.css
+    │   └── js/app.js
+    ├── scripts/
+    │   ├── simulate-gps.js
+    │   └── test-onelap.js
+    ├── src/
+    │   ├── config.js
+    │   ├── db.js
+    │   ├── index.js
+    │   ├── schedule.js
+    │   ├── store.js
+    │   └── integrations/
+    │       └── onelap.js
+    └── supabase/
+        └── schema.sql

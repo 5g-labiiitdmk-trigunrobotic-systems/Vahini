@@ -166,7 +166,7 @@ function createOnelapService({ config, store, io }) {
     running: false,
     deviceId: activeDeviceId,
     busId: onelapConfig?.busId || "BUS-01",
-    pollIntervalMs: onelapConfig?.pollIntervalMs || 5000,
+    pollIntervalMs: onelapConfig?.pollIntervalMs || 3000,
     lastSyncTime: null,
     lastSuccess: null,
     lastError: null,

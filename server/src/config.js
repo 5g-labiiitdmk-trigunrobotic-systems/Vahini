@@ -1,6 +1,5 @@
 module.exports = {
   port: Number(process.env.PORT || 8080),
-  jwtSecret: process.env.JWT_SECRET || "dev-only-change-me",
   deviceApiKey: process.env.DEVICE_API_KEY || "campus-bus-gps-secret",
   campus: {
     name: process.env.CAMPUS_NAME || "IIITDM Kurnool",
@@ -14,7 +13,7 @@ module.exports = {
     password: process.env.ONELAP_PASSWORD || "",
     deviceId: process.env.ONELAP_DEVICE_ID || "",
     busId: process.env.ONELAP_BUS_ID || "BUS-01",
-    pollIntervalMs: Math.max(2000, Number(process.env.ONELAP_POLL_INTERVAL_MS || 5000)),
+    pollIntervalMs: Math.max(1000, Number(process.env.ONELAP_POLL_INTERVAL_MS || 3000)),
   },
 };
 
