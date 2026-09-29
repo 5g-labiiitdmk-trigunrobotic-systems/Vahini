@@ -254,6 +254,41 @@ app.post("/api/v1/admin/activity-logs", requireAdminAuth, async (req, res) => {
   }
 });
 
+// Admin: Add Vehicle
+app.post("/api/v1/admin/vehicles", requireAdminAuth, async (req, res) => {
+  try {
+    const { id, name, route, color, status, stops } = req.body || {};
+    if (!id || !name || !route) {
+      return res.status(400).json({ error: "id, name, and route are required" });
+    }
+    const vehicle = await store.addVehicle({ id: String(id).trim().toUpperCase(), name, route, color: color || "#1E3A8A", stops: stops || [] });
+    await store.recordAdminActivity({
+      action: "Vehicle added",
+      details: `Added vehicle ${vehicle.id} – ${vehicle.name} (${(stops || []).length} stops)`,
+    });
+    res.json({ ok: true, vehicle });
+  } catch (err) {
+    console.error("Add vehicle error:", err);
+    res.status(500).json({ error: err.message || "Failed to add vehicle" });
+  }
+});
+
+// Admin: Delete Vehicle
+app.delete("/api/v1/admin/vehicles/:id", requireAdminAuth, async (req, res) => {
+  try {
+    const vehicleId = req.params.id;
+    await store.deleteVehicle(vehicleId);
+    await store.recordAdminActivity({
+      action: "Vehicle deleted",
+      details: `Removed vehicle ${vehicleId} from fleet`,
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("Delete vehicle error:", err);
+    res.status(500).json({ error: err.message || "Failed to delete vehicle" });
+  }
+});
+
 // Real-time Socket.IO Connection (Public - No Token Required)
 io.on("connection", async (socket) => {
   try {
@@ -278,7 +313,7 @@ async function start() {
 
   server.listen(config.port, "0.0.0.0", () => {
     console.log(`\n=================================================`);
-    console.log(`🚌 Campus Bus Live Tracker Server is running!`);
+    console.log(`🚌 IIITDMK Vaahini Server is running!`);
     console.log(`📍 Public Tracker Webpage : http://localhost:${config.port}/`);
     console.log(`📡 GPS Ingestion Endpoint : POST http://localhost:${config.port}/api/v1/telemetry`);
     if (config.onelap.enabled) {

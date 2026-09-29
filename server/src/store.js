@@ -6,11 +6,11 @@ const DEFAULT_BUSES = [
   {
     id: "BUS-01",
     name: "City Shuttle",
-    route: "IIITDM Kurnool ↔ G. Pulla Reddy ↔ Nandyal Check post ↔ C-Camp ↔ Raj Vihar",
+    route: "IIITDM Kurnool ↔ GPREC ↔ Nandyal Check post ↔ C-Camp ↔ Raj Vihar",
     color: "#1E3A8A",
     stops: [
       { id: "campus", name: "IIITDM Kurnool Campus", lat: 15.761093, lng: 78.038980 },
-      { id: "gpr", name: "Pulla Reddy Engineering College", lat: 15.774741, lng: 78.058717 },
+      { id: "gpr", name: "GPREC", lat: 15.774741, lng: 78.058717 },
       { id: "nandyal", name: "Nandyal Check post", lat: 15.797984, lng: 78.052022 },
       { id: "ccamp", name: "C Camp Circle", lat: 15.807002, lng: 78.042479 },
       { id: "rajvihar", name: "Raj Vihar (Kurnool Center)", lat: 15.828735, lng: 78.038423 },
@@ -674,6 +674,68 @@ function createStore() {
   }
 
   // =========================================================
+  // Vehicle Management (Add / Delete)
+  // =========================================================
+
+  async function addVehicle({ id, name, route, color, stops = [] }) {
+    // Check for duplicate ID
+    if (memoryBuses.has(id)) {
+      throw new Error(`Vehicle with ID "${id}" already exists`);
+    }
+
+    const newBus = { id, name, route, color, stops };
+    memoryBuses.set(id, newBus);
+
+    if (supabase) {
+      try {
+        // Check in DB too
+        const { data: existing } = await supabase.from("buses").select("id").eq("id", id).single();
+        if (existing) throw new Error(`Vehicle with ID "${id}" already exists in database`);
+
+        await supabase.from("buses").insert({ id, name, route, color });
+
+        for (const stop of stops) {
+          await supabase.from("stops").insert({
+            id: stop.id,
+            bus_id: id,
+            name: stop.name,
+            lat: stop.lat,
+            lng: stop.lng,
+          });
+        }
+      } catch (err) {
+        // If DB insert fails due to duplicate, clean up memory and rethrow
+        if (err.message && err.message.includes("already exists")) {
+          memoryBuses.delete(id);
+          throw err;
+        }
+        console.warn("Supabase addVehicle error:", err.message);
+      }
+    }
+
+    return withLive(newBus, null);
+  }
+
+  async function deleteVehicle(vehicleId) {
+    if (!memoryBuses.has(vehicleId)) {
+      // Still attempt DB delete in case it only exists there
+    }
+
+    memoryBuses.delete(vehicleId);
+    memoryLatest.delete(vehicleId);
+
+    if (supabase) {
+      try {
+        await supabase.from("stops").delete().eq("bus_id", vehicleId);
+        await supabase.from("telemetry").delete().eq("bus_id", vehicleId);
+        await supabase.from("buses").delete().eq("id", vehicleId);
+      } catch (err) {
+        console.warn("Supabase deleteVehicle error:", err.message);
+      }
+    }
+  }
+
+  // =========================================================
   // Admin Activity Audit Logs
   // =========================================================
 
@@ -729,6 +791,9 @@ function createStore() {
     listBuses,
     getBus,
     updatePosition,
+    // Vehicle Management
+    addVehicle,
+    deleteVehicle,
     // Analytics & Admin Methods
     recordWebsiteVisit,
     getWebsiteAnalytics,

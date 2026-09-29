@@ -79,7 +79,7 @@ GRANT SELECT ON bus_latest TO anon, authenticated;
 
 -- Seed Single City Shuttle
 INSERT INTO buses (id, name, route, color) VALUES
-  ('BUS-01', 'City Shuttle', 'IIITDM Kurnool ↔ G. Pulla Reddy ↔ Nandyal Check post ↔ C-Camp ↔ Raj Vihar', '#1E3A8A')
+  ('BUS-01', 'City Shuttle', 'IIITDM Kurnool ↔ GPREC ↔ Nandyal Check post ↔ C-Camp ↔ Raj Vihar', '#1E3A8A')
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   route = EXCLUDED.route,
@@ -91,7 +91,7 @@ DELETE FROM stops WHERE bus_id = 'BUS-01';
 -- Seed Official Transit Stops with precise coordinates
 INSERT INTO stops (id, bus_id, name, lat, lng) VALUES
   ('campus', 'BUS-01', 'IIITDM Kurnool Campus', 15.761093, 78.038980),
-  ('gpr', 'BUS-01', 'Pulla Reddy Engineering College', 15.774741, 78.058717),
+  ('gpr', 'BUS-01', 'GPREC', 15.774741, 78.058717),
   ('nandyal', 'BUS-01', 'Nandyal Check post', 15.797984, 78.052022),
   ('ccamp', 'BUS-01', 'C Camp Circle', 15.807002, 78.042479),
   ('rajvihar', 'BUS-01', 'Raj Vihar (Kurnool Center)', 15.828735, 78.038423)
@@ -147,3 +147,61 @@ ALTER TABLE admin_activity_logs DISABLE ROW LEVEL SECURITY;
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON website_opens, daily_bus_logs, admin_activity_logs TO anon, authenticated;
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;
+
+-- =========================================================
+-- IIITDMK Vaahini — Add Vehicle Feature (Admin Panel)
+-- Run in Supabase: SQL Editor → New query → Run
+-- These statements are safe to run on an existing schema.
+-- =========================================================
+
+-- The core buses & stops tables already exist from the base schema.
+-- The statements below add permissions and a helper function so the
+-- admin "Add Vehicle" / "Delete Vehicle" API works correctly.
+
+-- 1. Ensure the admin role can insert/delete buses and stops
+--    (already granted above, repeated here for isolated migration runs)
+GRANT SELECT, INSERT, UPDATE, DELETE ON buses TO anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON stops  TO anon, authenticated;
+
+-- 2. Helper function: add a vehicle with its stops in one transaction
+--    Called by the server's store.addVehicle() via individual inserts,
+--    but can also be used directly from the Supabase SQL editor.
+CREATE OR REPLACE FUNCTION add_vehicle(
+  p_id     TEXT,
+  p_name   TEXT,
+  p_route  TEXT,
+  p_color  TEXT
+)
+RETURNS buses AS $$
+DECLARE
+  inserted buses%ROWTYPE;
+BEGIN
+  INSERT INTO buses (id, name, route, color)
+  VALUES (p_id, p_name, p_route, p_color)
+  RETURNING * INTO inserted;
+  RETURN inserted;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Helper function: safely delete a vehicle and all its data
+CREATE OR REPLACE FUNCTION delete_vehicle(p_id TEXT)
+RETURNS VOID AS $$
+BEGIN
+  DELETE FROM stops    WHERE bus_id = p_id;
+  DELETE FROM telemetry WHERE bus_id = p_id;
+  DELETE FROM buses    WHERE id     = p_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Example: manually add a second vehicle via SQL
+--    (Uncomment and edit to use)
+-- SELECT add_vehicle('BUS-02', 'Campus Express', 'IIITDMK Campus ↔ Railway Station ↔ City Center', '#0ea5e9');
+--
+-- INSERT INTO stops (id, bus_id, name, lat, lng) VALUES
+--   ('campus2',  'BUS-02', 'IIITDMK Campus',    15.761093, 78.038980),
+--   ('station',  'BUS-02', 'Railway Station',    15.830000, 78.045000),
+--   ('city',     'BUS-02', 'City Center',        15.845000, 78.050000);
+
+-- 5. Example: manually delete a vehicle via SQL
+--    (Uncomment and edit to use)
+-- SELECT delete_vehicle('BUS-02');

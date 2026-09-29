@@ -293,12 +293,16 @@ function connectSocket() {
 
 // 6. Route Stops Coordinates & Transit Calculation
 const ROUTE_STOPS = [
-  { id: "campus", name: "IIITDM Kurnool", shortName: "IIITDM Kurnool", lat: 15.761093, lng: 78.038980 },
-  { id: "gpr", name: "G. Pulla Reddy", shortName: "G. Pulla Reddy", lat: 15.774741, lng: 78.058717 },
-  { id: "nandyal", name: "Nandyal Check post", shortName: "Nandyal Check post", lat: 15.797984, lng: 78.052022 },
-  { id: "ccamp", name: "C-Camp", shortName: "C-Camp", lat: 15.807002, lng: 78.042479 },
-  { id: "rajvihar", name: "Raj Vihar", shortName: "Raj Vihar", lat: 15.828735, lng: 78.038423 },
+  { id: "campus",   name: "IIITDM Kurnool",    shortName: "IIITDM Kurnool",    lat: 15.761093, lng: 78.038980 },
+  { id: "gpr",      name: "GPREC",              shortName: "GPREC",              lat: 15.774741, lng: 78.058717 },
+  { id: "nandyal",  name: "Nandyal Check post", shortName: "Nandyal Check post", lat: 15.797984, lng: 78.052022 },
+  { id: "ccamp",    name: "C-Camp",             shortName: "C-Camp",             lat: 15.807002, lng: 78.042479 },
+  { id: "rajvihar", name: "Raj Vihar",          shortName: "Raj Vihar",          lat: 15.828735, lng: 78.038423 },
 ];
+
+// STOP_BY_ID — quick lookup from stop key to ROUTE_STOPS entry
+const STOP_BY_ID = {};
+ROUTE_STOPS.forEach((s) => { STOP_BY_ID[s.id] = s; });
 
 function getDistanceMeters(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -314,86 +318,148 @@ function getDistanceMeters(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+// Returns the IST current time in minutes-since-midnight
+function getCurrentISTMinutes() {
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const ist = new Date(utc + 3600000 * 5.5);
+  return ist.getHours() * 60 + ist.getMinutes();
+}
+
+// Given the active trip (from scheduleData), build the ordered stop sequence
+// that the bus will travel through for that trip.
+// Most trips go directly point-to-point, but trips that pass through
+// intermediate stops are inferred by the geographical order of ROUTE_STOPS
+// between fromKey and toKey.
+function getTripStopSequence(trip) {
+  if (!trip) return ROUTE_STOPS.slice(); // fallback: full route
+
+  const fromIdx = ROUTE_STOPS.findIndex((s) => s.id === trip.fromKey);
+  const toIdx   = ROUTE_STOPS.findIndex((s) => s.id === trip.toKey);
+
+  if (fromIdx === -1 || toIdx === -1) return ROUTE_STOPS.slice();
+
+  // Slice in the correct direction
+  if (fromIdx <= toIdx) {
+    return ROUTE_STOPS.slice(fromIdx, toIdx + 1);       // going north (campus → city)
+  } else {
+    return ROUTE_STOPS.slice(toIdx, fromIdx + 1).reverse(); // going south (city → campus)
+  }
+}
+
+// Get the active trip right now from scheduleData (client-side mirror of getStatus())
+function getActiveTrip() {
+  if (!scheduleData) return null;
+
+  const currentMins = getCurrentISTMinutes();
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const ist = new Date(utc + 3600000 * 5.5);
+  const isWeekend = ist.getDay() === 0 || ist.getDay() === 6;
+  const schedule = isWeekend ? scheduleData.weekend : scheduleData.weekday;
+  if (!schedule) return null;
+
+  for (const trip of schedule) {
+    if (currentMins >= trip.pickupMins && currentMins < trip.dropMins) {
+      return trip;
+    }
+  }
+  return null; // between trips
+}
+
 function calculateCurrentAndNextStop(bus) {
   if (!bus || !bus.live || typeof bus.live.lat !== "number" || typeof bus.live.lng !== "number") {
     return {
       currentStop: "IIITDM Kurnool",
-      nextStop: "G. Pulla Reddy",
+      nextStop: "GPREC",
       isAtStop: true,
       distToNextStr: "",
     };
   }
 
-  const busLat = bus.live.lat;
-  const busLng = bus.live.lng;
+  const busLat  = bus.live.lat;
+  const busLng  = bus.live.lng;
   const heading = bus.live.heading;
-  const speed = bus.live.speedKmh || 0;
+  const speed   = bus.live.speedKmh || 0;
 
-  // Calculate distances to all stops
-  const stopsWithDist = ROUTE_STOPS.map((stop, index) => ({
+  // --- Step 1: Determine the relevant stop sequence from the active trip ---
+  const activeTrip = getActiveTrip();
+  const tripStops  = getTripStopSequence(activeTrip); // ordered: origin → destination
+
+  // If only 1 stop in sequence (should never happen), fall back gracefully
+  if (tripStops.length < 2) {
+    return { currentStop: tripStops[0]?.shortName || "IIITDM Kurnool", nextStop: "—", isAtStop: true, distToNextStr: "" };
+  }
+
+  // --- Step 2: Calculate distance from bus to each stop in this trip's sequence ---
+  const stopsWithDist = tripStops.map((stop, idx) => ({
     ...stop,
-    index,
+    seqIdx: idx, // position within this trip's sequence
     dist: getDistanceMeters(busLat, busLng, stop.lat, stop.lng),
   }));
 
-  // Sort by closest distance
-  stopsWithDist.sort((a, b) => a.dist - b.dist);
-  const closest = stopsWithDist[0];
-  const secondClosest = stopsWithDist[1];
+  // Sort by distance to find the two nearest stops
+  const sorted = stopsWithDist.slice().sort((a, b) => a.dist - b.dist);
+  const closest      = sorted[0];
+  const secondClosest = sorted[1];
 
-  // Determine direction of motion (Towards City vs Towards Campus)
-  // Campus is at south (~15.76), Raj Vihar is at north (~15.82)
-  let headingTowardsCity = true;
-  if (heading != null && !isNaN(heading)) {
-    // 110° to 250° is southward heading (towards Campus)
-    headingTowardsCity = !(heading >= 110 && heading <= 250);
+  // --- Step 3: Determine direction along this trip's sequence ---
+  // The trip has a canonical direction: sequence index 0 → last index.
+  // Use heading if available; otherwise infer from proximity.
+  const tripIsForward = true; // The sequence IS already in travel direction (from → to).
+
+  // Within the sequence, "forward" always means increasing seqIdx.
+  // We need to decide: is the bus moving forward (toward higher seqIdx) or backward?
+  let movingForward = true;
+
+  if (heading != null && !isNaN(heading) && activeTrip) {
+    // If trip goes from campus (south) to city (north): north heading = forward
+    const fromIdx = ROUTE_STOPS.findIndex((s) => s.id === activeTrip.fromKey);
+    const toIdx   = ROUTE_STOPS.findIndex((s) => s.id === activeTrip.toKey);
+    const goingNorth = toIdx > fromIdx;
+    // North = heading 0°–90° or 270°–360°; South = 90°–270°
+    const headingNorth = heading < 90 || heading > 270;
+    movingForward = goingNorth ? headingNorth : !headingNorth;
   } else {
-    if (closest.index === ROUTE_STOPS.length - 1) {
-      headingTowardsCity = false;
-    } else if (closest.index === 0) {
-      headingTowardsCity = true;
-    } else {
-      headingTowardsCity = secondClosest.index > closest.index;
-    }
+    // No heading — infer from which of the two nearest stops is "ahead" in sequence
+    movingForward = secondClosest.seqIdx > closest.seqIdx;
   }
 
-  // Check if bus is currently AT a stop (within 250m, or within 400m if stationary)
+  // --- Step 4: At-stop detection ---
   const isAtStop = closest.dist <= 250 || (speed < 4 && closest.dist <= 400);
 
-  let currentStopName = closest.shortName;
-  let nextStopIndex = 0;
+  let currentStopName;
+  let nextSeqIdx;
 
   if (isAtStop) {
-    if (closest.index === 0) {
-      // At Campus Terminal
-      currentStopName = closest.shortName;
-      nextStopIndex = 1;
-    } else if (closest.index === ROUTE_STOPS.length - 1) {
-      // At Raj Vihar (City Terminal)
-      currentStopName = closest.shortName;
-      nextStopIndex = ROUTE_STOPS.length - 2;
+    currentStopName = closest.shortName;
+    if (movingForward) {
+      nextSeqIdx = Math.min(tripStops.length - 1, closest.seqIdx + 1);
     } else {
-      currentStopName = closest.shortName;
-      nextStopIndex = headingTowardsCity
-        ? Math.min(ROUTE_STOPS.length - 1, closest.index + 1)
-        : Math.max(0, closest.index - 1);
+      nextSeqIdx = Math.max(0, closest.seqIdx - 1);
+    }
+    // Edge case: at destination terminal — next is undefined, bus has arrived
+    if (closest.seqIdx === tripStops.length - 1 && movingForward) {
+      nextSeqIdx = tripStops.length - 1; // stay at destination
+    }
+    if (closest.seqIdx === 0 && !movingForward) {
+      nextSeqIdx = 0; // stay at origin
     }
   } else {
-    // In transit between two stops [idx1, idx2]
-    const idx1 = Math.min(closest.index, secondClosest.index);
-    const idx2 = Math.max(closest.index, secondClosest.index);
-
-    if (headingTowardsCity) {
-      currentStopName = ROUTE_STOPS[idx1].shortName;
-      nextStopIndex = idx2;
+    // In transit between two stops
+    const lo = Math.min(closest.seqIdx, secondClosest.seqIdx);
+    const hi = Math.max(closest.seqIdx, secondClosest.seqIdx);
+    if (movingForward) {
+      currentStopName = tripStops[lo].shortName; // stop just passed
+      nextSeqIdx = hi;                            // stop coming up
     } else {
-      currentStopName = ROUTE_STOPS[idx2].shortName;
-      nextStopIndex = idx1;
+      currentStopName = tripStops[hi].shortName; // stop just passed (going back)
+      nextSeqIdx = lo;                            // stop coming up
     }
   }
 
-  const nextStopObj = ROUTE_STOPS[nextStopIndex];
-  const distToNextMeters = getDistanceMeters(busLat, busLng, nextStopObj.lat, nextStopObj.lng);
+  const nextStop = tripStops[nextSeqIdx];
+  const distToNextMeters = getDistanceMeters(busLat, busLng, nextStop.lat, nextStop.lng);
   let distToNextStr = "";
   if (distToNextMeters < 1000) {
     distToNextStr = `${Math.round(distToNextMeters)}m`;
@@ -403,9 +469,10 @@ function calculateCurrentAndNextStop(bus) {
 
   return {
     currentStop: currentStopName,
-    nextStop: nextStopObj.shortName,
+    nextStop: nextStop.shortName,
     isAtStop,
     distToNextStr,
+    activeTrip, // expose for callers that want to know the trip context
   };
 }
 
@@ -527,10 +594,17 @@ function renderStopsTimeline(busId) {
 
   const stopStatus = calculateCurrentAndNextStop(bus);
 
+  // Determine which stops are part of the active trip so we can dim the rest
+  const activeTrip = stopStatus.activeTrip;
+  const tripSeq    = getTripStopSequence(activeTrip); // ordered sequence for active trip
+  const tripStopIds = new Set(tripSeq.map((s) => s.id));
+
   bus.stops.forEach((stop, idx) => {
     const item = document.createElement("div");
     const isCurrent = stopStatus.currentStop === stop.shortName || stopStatus.currentStop === stop.name;
-    const isNext = stopStatus.nextStop === stop.shortName || stopStatus.nextStop === stop.name;
+    const isNext    = stopStatus.nextStop === stop.shortName || stopStatus.nextStop === stop.name;
+    // Stops outside the active trip's sequence are dimmed (not removed — user can still see full route)
+    const isInTrip  = !activeTrip || tripStopIds.has(stop.id);
 
     let extraClass = "";
     let badgeHtml = "";
@@ -542,7 +616,7 @@ function renderStopsTimeline(busId) {
       badgeHtml = `<span class="timeline-stop-pill next-pill">Next ${stopStatus.distToNextStr ? `• ${stopStatus.distToNextStr}` : ""}</span>`;
     }
 
-    item.className = `stop-item ${extraClass}`;
+    item.className = `stop-item ${extraClass}${!isInTrip ? " stop-not-in-trip" : ""}`;
     item.innerHTML = `
       <div class="stop-bullet">${idx + 1}</div>
       <div class="stop-info-wrap">

@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Admin Dashboard — IIITDM Kurnool Bus & Website Analytics</title>
+  <title>Admin Dashboard — IIITDMK Vaahini</title>
   <meta name="description"
-    content="Dedicated Admin Dashboard for monitoring single campus bus operations and website usage analytics." />
+    content="Dedicated Admin Dashboard for IIITDMK Vaahini – monitoring campus bus operations and website usage analytics." />
 
   <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -28,7 +28,7 @@
           <i class="fa-solid fa-shield-halved"></i>
         </div>
         <h2>Admin Console</h2>
-        <p>IIITDM Kurnool Transit & Analytics Portal</p>
+        <p>IIITDMK Vaahini Transit & Analytics Portal</p>
       </div>
 
       <form id="login-form" class="auth-form" onsubmit="handleAdminLogin(event)">
@@ -67,7 +67,7 @@
         </div>
         <div class="brand-titles">
           <h3>Admin Portal</h3>
-          <span>Campus Bus & Analytics</span>
+          <span>IIITDMK Vaahini Admin</span>
         </div>
         <button class="btn-close-sidebar" id="btn-close-sidebar" aria-label="Close menu">
           <i class="fa-solid fa-xmark"></i>
@@ -96,6 +96,10 @@
         <button class="nav-item" data-tab="activity-logs">
           <i class="fa-solid fa-clipboard-list"></i>
           <span>Activity Logs</span>
+        </button>
+        <button class="nav-item" data-tab="vehicles">
+          <i class="fa-solid fa-bus-simple"></i>
+          <span>Vehicles</span>
         </button>
       </nav>
 
@@ -695,6 +699,50 @@
           </div>
         </section>
 
+        <!-- ========================================================= -->
+        <!-- 6. VEHICLES TAB                                           -->
+        <!-- ========================================================= -->
+        <section class="tab-pane" id="tab-pane-vehicles">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle bus-icon">
+                  <i class="fa-solid fa-bus-simple"></i>
+                </div>
+                <div>
+                  <h3>Fleet Vehicles</h3>
+                  <p>Manage all registered vehicles in IIITDMK Vaahini fleet</p>
+                </div>
+              </div>
+              <div class="header-actions">
+                <button class="btn-primary btn-sm" onclick="openAddVehicleModal()">
+                  <i class="fa-solid fa-plus"></i> Add Vehicle
+                </button>
+              </div>
+            </div>
+
+            <!-- Vehicles Table -->
+            <div class="table-responsive">
+              <table class="admin-table" id="vehicles-table">
+                <thead>
+                  <tr>
+                    <th>Vehicle ID</th>
+                    <th>Name</th>
+                    <th>Route</th>
+                    <th>Color</th>
+                    <th>Stops</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="vehicles-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
       </main>
     </div>
   </div>
@@ -815,6 +863,79 @@
           <button type="button" class="btn-secondary" onclick="closeAddAuditModal()">Cancel</button>
           <button type="submit" class="btn-primary">
             <i class="fa-solid fa-check"></i> Record Audit Entry
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Vehicle -->
+  <div class="admin-modal-overlay" id="add-vehicle-modal" style="display: none;">
+    <div class="admin-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-bus-simple"></i>
+          <h3>Add New Vehicle</h3>
+        </div>
+        <button class="btn-close-modal" onclick="closeAddVehicleModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="add-vehicle-form" onsubmit="handleSaveVehicle(event)">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Vehicle ID <span style="color:var(--accent-red)">*</span></label>
+              <input type="text" id="modal-vehicle-id" placeholder="e.g. BUS-02" required />
+              <small style="color:var(--text-muted);">Unique identifier — cannot be changed later.</small>
+            </div>
+            <div class="form-group">
+              <label>Vehicle Name <span style="color:var(--accent-red)">*</span></label>
+              <input type="text" id="modal-vehicle-name" placeholder="e.g. Campus Express" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Route Description <span style="color:var(--accent-red)">*</span></label>
+            <input type="text" id="modal-vehicle-route"
+              placeholder="e.g. IIITDMK Campus ↔ Railway Station ↔ City Center" required />
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Map Color</label>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <input type="color" id="modal-vehicle-color" value="#0ea5e9"
+                  style="width:48px;height:38px;border:none;cursor:pointer;background:transparent;" />
+                <input type="text" id="modal-vehicle-color-hex" value="#0ea5e9"
+                  placeholder="#0ea5e9" maxlength="7"
+                  style="flex:1;"
+                  oninput="document.getElementById('modal-vehicle-color').value=this.value" />
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Initial Status</label>
+              <select id="modal-vehicle-status" class="form-select">
+                <option value="Not Started">Not Started</option>
+                <option value="Active">Active</option>
+                <option value="Offline">Offline</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Stops (one per line — format: <code>id | Stop Name | lat | lng</code>)</label>
+            <textarea id="modal-vehicle-stops" rows="5"
+              placeholder="campus | IIITDMK Campus | 15.761093 | 78.038980&#10;station | Railway Station | 15.830000 | 78.045000"></textarea>
+            <small style="color:var(--text-muted);">Leave blank to add stops later. Coordinates are decimal degrees.</small>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeAddVehicleModal()">Cancel</button>
+          <button type="submit" class="btn-primary" id="btn-save-vehicle">
+            <i class="fa-solid fa-floppy-disk"></i> Save Vehicle
           </button>
         </div>
       </form>

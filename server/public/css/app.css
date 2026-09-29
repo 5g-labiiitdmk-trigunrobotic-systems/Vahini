@@ -798,6 +798,15 @@ html, body {
   background: #2563eb;
 }
 
+/* Stops not included in the active trip are dimmed but still visible */
+.stop-item.stop-not-in-trip {
+  opacity: 0.38;
+  pointer-events: auto; /* still clickable to fly map */
+}
+.stop-item.stop-not-in-trip .stop-bullet {
+  background: var(--text-subtle);
+}
+
 .timeline-stop-pill {
   font-size: 0.62rem;
   font-weight: 800;

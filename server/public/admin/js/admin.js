@@ -1,6 +1,6 @@
 // =========================================================
 // Admin Dashboard & Analytics Controller
-// IIITDM Kurnool Campus Transit & Usage Portal
+// IIITDMK Vaahini Campus Transit & Usage Portal
 // =========================================================
 
 const AUTH_TOKEN_KEY = "campus_bus_admin_token";
@@ -32,6 +32,10 @@ const TAB_CONFIG = {
   "activity-logs": {
     title: "Admin Activity Audit Logs",
     sub: "Security and Operation Modification Trail",
+  },
+  vehicles: {
+    title: "Fleet Vehicles",
+    sub: "Add, view and manage registered vehicles",
   },
 };
 
@@ -280,6 +284,7 @@ function loadCurrentTabData() {
   else if (activeTab === "website-analytics") loadWebsiteAnalytics();
   else if (activeTab === "statistics") loadStatisticsOverview();
   else if (activeTab === "activity-logs") loadActivityLogs();
+  else if (activeTab === "vehicles") loadVehicles();
 }
 
 // 1. Dashboard Tab Data
@@ -686,6 +691,163 @@ async function handleSaveAuditNote(e) {
 }
 
 // =========================================================
+// Vehicles Tab
+// =========================================================
+
+async function loadVehicles() {
+  const tbody = document.getElementById("vehicles-tbody");
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;"><i class="fa-solid fa-circle-notch fa-spin"></i> Loading vehicles...</td></tr>';
+
+  try {
+    const res = await fetchWithAuth(`/api/v1/buses?_t=${Date.now()}`);
+    const data = await res.json();
+    const buses = data.buses || [];
+
+    tbody.innerHTML = "";
+
+    if (buses.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">No vehicles registered yet.</td></tr>';
+      return;
+    }
+
+    buses.forEach((bus) => {
+      const tr = document.createElement("tr");
+      const stopsCount = (bus.stops || []).length;
+      const onlineClass = bus.online ? "completed" : "not-started";
+      const onlineLabel = bus.online ? "Online" : "Offline";
+
+      tr.innerHTML = `
+        <td><strong style="color:var(--accent-cyan);">${bus.id}</strong></td>
+        <td><strong>${bus.name}</strong></td>
+        <td style="font-size:12px;color:var(--text-muted);">${bus.route || "—"}</td>
+        <td>
+          <span style="display:inline-flex;align-items:center;gap:6px;">
+            <span style="width:16px;height:16px;border-radius:50%;background:${bus.color || '#1e3a8a'};display:inline-block;border:2px solid rgba(255,255,255,0.2);"></span>
+            ${bus.color || "#1e3a8a"}
+          </span>
+        </td>
+        <td>${stopsCount} stop${stopsCount !== 1 ? "s" : ""}</td>
+        <td><span class="status-badge ${onlineClass}">${onlineLabel}</span></td>
+        <td>
+          <button class="btn-sm btn-outline" onclick="confirmDeleteVehicle('${bus.id}', '${bus.name.replace(/'/g, "\\'")}')">
+            <i class="fa-solid fa-trash"></i> Delete
+          </button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--accent-red);">Failed to load vehicles.</td></tr>';
+    console.error("loadVehicles error:", err);
+  }
+}
+
+function openAddVehicleModal() {
+  const modal = document.getElementById("add-vehicle-modal");
+  if (!modal) return;
+  // Reset form
+  document.getElementById("add-vehicle-form").reset();
+  document.getElementById("modal-vehicle-color").value = "#0ea5e9";
+  document.getElementById("modal-vehicle-color-hex").value = "#0ea5e9";
+  modal.style.display = "flex";
+}
+
+function closeAddVehicleModal() {
+  const modal = document.getElementById("add-vehicle-modal");
+  if (modal) modal.style.display = "none";
+}
+
+async function handleSaveVehicle(e) {
+  if (e) e.preventDefault();
+
+  const id = document.getElementById("modal-vehicle-id").value.trim().toUpperCase();
+  const name = document.getElementById("modal-vehicle-name").value.trim();
+  const route = document.getElementById("modal-vehicle-route").value.trim();
+  const color = document.getElementById("modal-vehicle-color-hex").value.trim() || "#0ea5e9";
+  const status = document.getElementById("modal-vehicle-status").value;
+  const stopsRaw = document.getElementById("modal-vehicle-stops").value.trim();
+
+  if (!id || !name || !route) return;
+
+  // Parse stops
+  const stops = [];
+  if (stopsRaw) {
+    stopsRaw.split("\n").forEach((line) => {
+      const parts = line.split("|").map((p) => p.trim());
+      if (parts.length >= 4) {
+        const stopId = parts[0];
+        const stopName = parts[1];
+        const lat = parseFloat(parts[2]);
+        const lng = parseFloat(parts[3]);
+        if (stopId && stopName && !isNaN(lat) && !isNaN(lng)) {
+          stops.push({ id: stopId, name: stopName, lat, lng });
+        }
+      }
+    });
+  }
+
+  const btnSave = document.getElementById("btn-save-vehicle");
+  if (btnSave) {
+    btnSave.disabled = true;
+    btnSave.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Saving...';
+  }
+
+  try {
+    const res = await fetchWithAuth("/api/v1/admin/vehicles", {
+      method: "POST",
+      body: JSON.stringify({ id, name, route, color, status, stops }),
+    });
+
+    const data = await res.json();
+    if (data.ok) {
+      closeAddVehicleModal();
+      await loadVehicles();
+      await store.recordAdminActivity?.({
+        action: "Vehicle added",
+        details: `Added vehicle ${id} (${name})`,
+      });
+    } else {
+      alert("Failed to add vehicle: " + (data.error || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Error saving vehicle: " + err.message);
+  } finally {
+    if (btnSave) {
+      btnSave.disabled = false;
+      btnSave.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Save Vehicle';
+    }
+  }
+}
+
+async function confirmDeleteVehicle(vehicleId, vehicleName) {
+  if (!confirm(`Delete vehicle "${vehicleName}" (${vehicleId})?\n\nThis will also remove its stops and GPS telemetry. This action cannot be undone.`)) return;
+
+  try {
+    const res = await fetchWithAuth(`/api/v1/admin/vehicles/${vehicleId}`, { method: "DELETE" });
+    const data = await res.json();
+    if (data.ok) {
+      loadVehicles();
+    } else {
+      alert("Failed to delete vehicle: " + (data.error || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Error deleting vehicle: " + err.message);
+  }
+}
+
+// Sync color picker ↔ hex text input
+document.addEventListener("DOMContentLoaded", () => {
+  const colorPicker = document.getElementById("modal-vehicle-color");
+  const colorHex = document.getElementById("modal-vehicle-color-hex");
+  if (colorPicker && colorHex) {
+    colorPicker.addEventListener("input", () => {
+      colorHex.value = colorPicker.value;
+    });
+  }
+});
+
+// =========================================================
 // Mobile Sidebar Controls
 // =========================================================
 
@@ -758,5 +920,11 @@ window.handleSaveDailyLog = handleSaveDailyLog;
 window.openAddAuditModal = openAddAuditModal;
 window.closeAddAuditModal = closeAddAuditModal;
 window.handleSaveAuditNote = handleSaveAuditNote;
+
+window.loadVehicles = loadVehicles;
+window.openAddVehicleModal = openAddVehicleModal;
+window.closeAddVehicleModal = closeAddVehicleModal;
+window.handleSaveVehicle = handleSaveVehicle;
+window.confirmDeleteVehicle = confirmDeleteVehicle;
 
 window.addEventListener("DOMContentLoaded", checkAuthState);
