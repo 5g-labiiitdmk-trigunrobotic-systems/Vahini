@@ -112,6 +112,148 @@ app.post("/api/v1/telemetry", async (req, res) => {
   }
 });
 
+// Public Website Visit Tracking Ping
+app.post("/api/v1/analytics/visit", async (req, res) => {
+  try {
+    const page = req.body?.page || "Bus Tracking";
+    const visit = await store.recordWebsiteVisit({ page });
+    res.json({ ok: true, visitId: visit.id });
+  } catch (err) {
+    console.error("Analytics visit error:", err);
+    res.status(500).json({ error: "Failed to record visit" });
+  }
+});
+
+// Admin Authentication Middleware
+function requireAdminAuth(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : req.headers["x-admin-token"];
+  if (!token || token !== config.admin.token) {
+    return res.status(401).json({ error: "Unauthorized: Invalid or missing admin token" });
+  }
+  next();
+}
+
+// Admin Login
+app.post("/api/v1/admin/login", async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (!password || password !== config.admin.password) {
+      return res.status(401).json({ ok: false, error: "Incorrect admin password" });
+    }
+    await store.recordAdminActivity({
+      action: "Admin authenticated",
+      details: "Admin logged into dashboard console",
+    });
+    res.json({
+      ok: true,
+      token: config.admin.token,
+      message: "Admin authentication successful",
+    });
+  } catch (err) {
+    console.error("Admin login error:", err);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+// Admin Dashboard Summary for Date
+app.get("/api/v1/admin/stats", requireAdminAuth, async (req, res) => {
+  try {
+    const dateStr = req.query.date;
+    const stats = await store.getDashboardStats(dateStr);
+    res.json(stats);
+  } catch (err) {
+    console.error("Admin stats error:", err);
+    res.status(500).json({ error: "Failed to fetch dashboard stats" });
+  }
+});
+
+// Admin Bus Daily Logs List
+app.get("/api/v1/admin/bus/daily-logs", requireAdminAuth, async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 30;
+    const logs = await store.listDailyBusLogs(limit);
+    res.json({ logs });
+  } catch (err) {
+    console.error("Daily logs error:", err);
+    res.status(500).json({ error: "Failed to fetch daily logs" });
+  }
+});
+
+// Admin Bus Daily Log Detail
+app.get("/api/v1/admin/bus/daily-logs/:date", requireAdminAuth, async (req, res) => {
+  try {
+    const log = await store.getDailyBusLog(req.params.date);
+    res.json(log);
+  } catch (err) {
+    console.error("Daily log error:", err);
+    res.status(500).json({ error: "Failed to fetch daily log" });
+  }
+});
+
+// Admin Update Daily Bus Log
+app.put("/api/v1/admin/bus/daily-logs/:date", requireAdminAuth, async (req, res) => {
+  try {
+    const dateStr = req.params.date;
+    const updated = await store.saveDailyBusLog({ ...req.body, dateStr });
+    await store.recordAdminActivity({
+      action: "Daily log updated",
+      details: `Updated log for ${dateStr} (Status: ${updated.status || 'N/A'}, Dist: ${updated.totalDistanceKm || 0} km)`,
+    });
+    res.json({ ok: true, log: updated });
+  } catch (err) {
+    console.error("Update daily log error:", err);
+    res.status(500).json({ error: "Failed to update daily log" });
+  }
+});
+
+// Admin Website Analytics for Date
+app.get("/api/v1/admin/analytics/website", requireAdminAuth, async (req, res) => {
+  try {
+    const dateStr = req.query.date;
+    const analytics = await store.getWebsiteAnalytics(dateStr);
+    res.json(analytics);
+  } catch (err) {
+    console.error("Website analytics error:", err);
+    res.status(500).json({ error: "Failed to fetch website analytics" });
+  }
+});
+
+// Admin All-Time Statistics Overview
+app.get("/api/v1/admin/analytics/overview", requireAdminAuth, async (req, res) => {
+  try {
+    const overview = await store.getStatisticsOverview();
+    res.json(overview);
+  } catch (err) {
+    console.error("Statistics overview error:", err);
+    res.status(500).json({ error: "Failed to fetch statistics overview" });
+  }
+});
+
+// Admin Activity Audit Logs
+app.get("/api/v1/admin/activity-logs", requireAdminAuth, async (req, res) => {
+  try {
+    const limit = Number(req.query.limit) || 50;
+    const activities = await store.listAdminActivities(limit);
+    res.json({ activities });
+  } catch (err) {
+    console.error("Activity logs error:", err);
+    res.status(500).json({ error: "Failed to fetch activity logs" });
+  }
+});
+
+app.post("/api/v1/admin/activity-logs", requireAdminAuth, async (req, res) => {
+  try {
+    const { action, details } = req.body || {};
+    if (!action) return res.status(400).json({ error: "Action is required" });
+    const log = await store.recordAdminActivity({ action, details });
+    res.json({ ok: true, activity: log });
+  } catch (err) {
+    console.error("Create activity log error:", err);
+    res.status(500).json({ error: "Failed to create activity log" });
+  }
+});
+
 // Real-time Socket.IO Connection (Public - No Token Required)
 io.on("connection", async (socket) => {
   try {

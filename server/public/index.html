@@ -1,21 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>IIITDM Kurnool — Live Campus Bus & Timetable</title>
-  <meta name="description" content="Real-time live GPS tracking and official timetable for IIITDM Kurnool campus transit bus." />
-  
+  <meta name="description"
+    content="Real-time live GPS tracking and official timetable for IIITDM Kurnool campus transit bus." />
+
   <!-- Fonts & Icons -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  
+
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="/css/app.css?v=3.0" />
 </head>
+
 <body>
   <div class="app-layout">
     <!-- Top Navigation Header -->
@@ -25,7 +29,8 @@
           <i class="fa-solid fa-bars-staggered"></i>
         </button>
         <div class="brand-group">
-          <img class="header-logo" src="/assets/logo.jpg" alt="IIITDM Kurnool Logo" onerror="this.style.display='none'" />
+          <img class="header-logo" src="/assets/logo.jpg" alt="IIITDM Kurnool Logo"
+            onerror="this.style.display='none'" />
           <div class="brand-text">
             <h1 class="header-title">IIITDM Kurnool</h1>
             <span class="header-subtitle">Live Campus Transit Tracker</span>
@@ -41,9 +46,16 @@
       </div>
 
       <div class="header-right">
-        <button id="open-timetable-btn" class="header-btn btn-highlight" onclick="openTimetable()" title="View Full Bus Timetable">
+        <button id="open-timetable-btn" class="header-btn btn-highlight" onclick="openTimetable()"
+          title="View Full Bus Timetable">
           <i class="fa-solid fa-calendar-days"></i>
           <span class="btn-label-desktop">Timetable</span>
+        </button>
+
+        <button id="open-about-btn" class="header-btn btn-about" onclick="scrollToAbout()"
+          title="About Us & Development Team">
+          <i class="fa-solid fa-circle-info"></i>
+          <span class="btn-label-desktop">About Us</span>
         </button>
 
         <button id="btn-refresh" class="header-btn btn-refresh" title="Refresh Live Bus Location" aria-label="Refresh">
@@ -87,7 +99,7 @@
               <i class="fa-solid fa-arrow-right-long trip-arrow-icon"></i>
               <span class="trip-stop-to" id="hero-to-stop">C-Camp</span>
             </div>
-            
+
             <div class="trip-time-row">
               <div class="trip-time-item">
                 <span class="time-label">Pickup</span>
@@ -136,6 +148,87 @@
             <p class="no-selection-msg">Loading stops...</p>
           </div>
         </div>
+
+        <!-- Embedded About Us & Design/Development Team Footer -->
+        <footer class="app-about-footer" id="about-us-section">
+          <div class="footer-section-header">
+            <div class="footer-badge">
+              <i class="fa-solid fa-circle-info"></i>
+              <span>About Us</span>
+            </div>
+            <h3 class="footer-section-title">Design & Development Team</h3>
+            <p class="footer-section-sub">IIITDM Kurnool Smart Campus Transit</p>
+          </div>
+
+          <div class="footer-team-cards">
+            <!-- Faculty Mentor Card -->
+            <div class="footer-member-card faculty-card">
+              <div class="footer-member-top">
+                <span class="footer-role-pill faculty-role">
+                  <i class="fa-solid fa-chalkboard-user"></i> Faculty Mentor & Lead
+                </span>
+              </div>
+              <div class="footer-member-body">
+                <div class="footer-avatar-box faculty-avatar has-photo">
+                  <img src="/assets/krishna-naik.jpg" alt="Dr. K. Krishna Naik" class="member-photo-img"
+                    onerror="this.style.display='none'" />
+                </div>
+                <div class="footer-member-info">
+                  <h4 class="footer-member-name">Dr. K. Krishna Naik</h4>
+                  <span class="footer-member-designation">Associate Professor</span>
+                  <p class="footer-member-dept">Department of Electronics and Communication Engineering (ECE)</p>
+                  <span class="footer-member-inst"><i class="fa-solid fa-building-columns"></i> IIITDM Kurnool</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Student Developer Card -->
+            <div class="footer-member-card student-card">
+              <div class="footer-member-top">
+                <span class="footer-role-pill student-role">
+                  <i class="fa-solid fa-code"></i> Student Team Member
+                </span>
+              </div>
+              <div class="footer-member-body">
+                <div class="footer-avatar-box student-avatar">
+                  <i class="fa-solid fa-laptop-code"></i>
+                </div>
+                <div class="footer-member-info">
+                  <h4 class="footer-member-name">Mr. V Sreenivas</h4>
+                  <span class="footer-member-designation">B.Tech (Artificial Intelligence & Data Science)</span>
+                  <p class="footer-member-dept">Design, Development & System Architecture</p>
+                  <span class="footer-member-inst"><i class="fa-solid fa-building-columns"></i> IIITDM Kurnool</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Industry & Technology Partner -->
+          <a href="https://www.trigunrobotics.com/" target="_blank" rel="noopener noreferrer"
+            class="footer-partner-card" title="Visit Trigun Robotic Systems (Opens in new tab)">
+            <div class="footer-partner-icon has-logo">
+              <img src="/assets/trigun-logo.png" alt="Trigun Robotic Systems Logo" class="partner-logo-img"
+                onerror="this.style.display='none'" />
+            </div>
+            <div class="footer-partner-details">
+              <div class="footer-partner-header-row">
+                <span class="footer-partner-tag">Industry & Technology Partner</span>
+                <i class="fa-solid fa-arrow-up-right-from-square partner-ext-icon"></i>
+              </div>
+              <strong class="footer-partner-name">Trigun Robotic Systems Pvt. Ltd., Kurnool</strong>
+              <span class="footer-partner-loc"><i class="fa-solid fa-location-dot"></i> Kurnool, Andhra Pradesh,
+                India</span>
+            </div>
+          </a>
+
+          <!-- Legal Copyright Row -->
+          <div class="footer-copyright-bar">
+            <p>© All Rights Reserved – <a href="https://www.trigunrobotics.com/" target="_blank"
+                rel="noopener noreferrer" class="copyright-link">Trigun Robotic Systems Pvt. Ltd., Kurnool</a>. • <a
+                href="/admin/" class="copyright-link" title="Admin Portal"><i class="fa-solid fa-shield-halved"></i>
+                Admin Portal</a></p>
+          </div>
+        </footer>
       </aside>
 
       <!-- Map View Container -->
@@ -170,7 +263,8 @@
   </div>
 
   <!-- Timetable Modal Dialog -->
-  <div class="modal-backdrop" id="timetable-modal" style="display: none !important;" onclick="if(event.target===this)closeTimetable(event)">
+  <div class="modal-backdrop" id="timetable-modal" style="display: none !important;"
+    onclick="if(event.target===this)closeTimetable(event)">
     <div class="modal-window">
       <div class="modal-header">
         <div class="modal-title-group">
@@ -182,7 +276,8 @@
             <p class="modal-subtitle" id="modal-today-info">Official Bus Timings & Pickup/Drop Points</p>
           </div>
         </div>
-        <button class="btn-modal-close" id="close-timetable-modal" onclick="closeTimetable(event)" aria-label="Close modal">
+        <button class="btn-modal-close" id="close-timetable-modal" onclick="closeTimetable(event)"
+          aria-label="Close modal">
           <i class="fa-solid fa-xmark"></i>
         </button>
       </div>
@@ -245,4 +340,5 @@
   <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
   <script src="/js/app.js?v=3.0"></script>
 </body>
+
 </html>

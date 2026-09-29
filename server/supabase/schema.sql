@@ -99,3 +99,51 @@ ON CONFLICT (bus_id, id) DO UPDATE SET
   lat = EXCLUDED.lat,
   lng = EXCLUDED.lng,
   name = EXCLUDED.name;
+
+-- =========================================================
+-- 6. Analytics & Admin Tables
+-- =========================================================
+
+-- Website Opens Tracking (Measures every page load/visit)
+CREATE TABLE IF NOT EXISTS website_opens (
+  id           BIGSERIAL PRIMARY KEY,
+  page         TEXT NOT NULL DEFAULT 'Bus Tracking',
+  hour         INTEGER NOT NULL,
+  date_str     TEXT NOT NULL,
+  recorded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_website_opens_date ON website_opens (date_str, hour);
+
+-- Daily Bus Logs (Single Bus Monitoring)
+CREATE TABLE IF NOT EXISTS daily_bus_logs (
+  id                   BIGSERIAL PRIMARY KEY,
+  bus_id               TEXT NOT NULL DEFAULT 'BUS-01',
+  date_str             TEXT NOT NULL UNIQUE,
+  status               TEXT NOT NULL DEFAULT 'Not Started',
+  start_time           TEXT DEFAULT '—',
+  end_time             TEXT DEFAULT '—',
+  total_distance_km    DOUBLE PRECISION DEFAULT 0.0,
+  operating_time_mins  INTEGER DEFAULT 0,
+  starting_location    TEXT DEFAULT 'IIITDM Kurnool Campus',
+  ending_location      TEXT DEFAULT 'Raj Vihar',
+  current_location     TEXT,
+  stops_visited_count  INTEGER DEFAULT 0,
+  created_at           TIMESTAMPTZ DEFAULT now(),
+  updated_at           TIMESTAMPTZ DEFAULT now()
+);
+
+-- Admin Activity Audit Logs
+CREATE TABLE IF NOT EXISTS admin_activity_logs (
+  id           BIGSERIAL PRIMARY KEY,
+  action       TEXT NOT NULL,
+  details      TEXT,
+  recorded_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE website_opens DISABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_bus_logs DISABLE ROW LEVEL SECURITY;
+ALTER TABLE admin_activity_logs DISABLE ROW LEVEL SECURITY;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON website_opens, daily_bus_logs, admin_activity_logs TO anon, authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated;

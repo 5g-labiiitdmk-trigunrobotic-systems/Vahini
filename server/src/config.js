@@ -15,5 +15,9 @@ module.exports = {
     busId: process.env.ONELAP_BUS_ID || "BUS-01",
     pollIntervalMs: Math.max(1000, Number(process.env.ONELAP_POLL_INTERVAL_MS || 3000)),
   },
+  admin: {
+    password: process.env.ADMIN_PASSWORD || "admin123",
+    token: process.env.ADMIN_TOKEN || "campus-bus-admin-sec-token-2026",
+  },
 };
 

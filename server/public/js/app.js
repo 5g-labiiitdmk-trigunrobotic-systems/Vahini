@@ -41,6 +41,9 @@ const timetableTbody = document.getElementById("timetable-tbody");
 const modalTabs = document.querySelectorAll(".modal-tab");
 const filterPills = document.querySelectorAll(".filter-pill");
 
+// About Button Reference
+const openAboutBtn = document.getElementById("open-about-btn");
+
 // Floating HUD
 const floatingBusHud = document.getElementById("floating-bus-hud");
 const hudColorIndicator = document.getElementById("hud-color-indicator");
@@ -220,8 +223,20 @@ function updateNextBusBanner() {
   }
 }
 
+// Analytics Visit Logger (Counts website opens / page visits)
+function logWebsiteVisit(pageName = "Bus Tracking") {
+  try {
+    fetch("/api/v1/analytics/visit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page: pageName }),
+    }).catch(() => {});
+  } catch (_) {}
+}
+
 // 5. Load Buses via HTTP & Setup Socket.IO
 async function initTracker() {
+  logWebsiteVisit("Bus Tracking");
   initMap();
   await loadSchedule();
 
@@ -276,7 +291,125 @@ function connectSocket() {
   });
 }
 
-// 6. Process & Render Bus Data
+// 6. Route Stops Coordinates & Transit Calculation
+const ROUTE_STOPS = [
+  { id: "campus", name: "IIITDM Kurnool", shortName: "IIITDM Kurnool", lat: 15.761093, lng: 78.038980 },
+  { id: "gpr", name: "G. Pulla Reddy", shortName: "G. Pulla Reddy", lat: 15.774741, lng: 78.058717 },
+  { id: "nandyal", name: "Nandyal Check post", shortName: "Nandyal Check post", lat: 15.797984, lng: 78.052022 },
+  { id: "ccamp", name: "C-Camp", shortName: "C-Camp", lat: 15.807002, lng: 78.042479 },
+  { id: "rajvihar", name: "Raj Vihar", shortName: "Raj Vihar", lat: 15.828735, lng: 78.038423 },
+];
+
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+function calculateCurrentAndNextStop(bus) {
+  if (!bus || !bus.live || typeof bus.live.lat !== "number" || typeof bus.live.lng !== "number") {
+    return {
+      currentStop: "IIITDM Kurnool",
+      nextStop: "G. Pulla Reddy",
+      isAtStop: true,
+      distToNextStr: "",
+    };
+  }
+
+  const busLat = bus.live.lat;
+  const busLng = bus.live.lng;
+  const heading = bus.live.heading;
+  const speed = bus.live.speedKmh || 0;
+
+  // Calculate distances to all stops
+  const stopsWithDist = ROUTE_STOPS.map((stop, index) => ({
+    ...stop,
+    index,
+    dist: getDistanceMeters(busLat, busLng, stop.lat, stop.lng),
+  }));
+
+  // Sort by closest distance
+  stopsWithDist.sort((a, b) => a.dist - b.dist);
+  const closest = stopsWithDist[0];
+  const secondClosest = stopsWithDist[1];
+
+  // Determine direction of motion (Towards City vs Towards Campus)
+  // Campus is at south (~15.76), Raj Vihar is at north (~15.82)
+  let headingTowardsCity = true;
+  if (heading != null && !isNaN(heading)) {
+    // 110° to 250° is southward heading (towards Campus)
+    headingTowardsCity = !(heading >= 110 && heading <= 250);
+  } else {
+    if (closest.index === ROUTE_STOPS.length - 1) {
+      headingTowardsCity = false;
+    } else if (closest.index === 0) {
+      headingTowardsCity = true;
+    } else {
+      headingTowardsCity = secondClosest.index > closest.index;
+    }
+  }
+
+  // Check if bus is currently AT a stop (within 250m, or within 400m if stationary)
+  const isAtStop = closest.dist <= 250 || (speed < 4 && closest.dist <= 400);
+
+  let currentStopName = closest.shortName;
+  let nextStopIndex = 0;
+
+  if (isAtStop) {
+    if (closest.index === 0) {
+      // At Campus Terminal
+      currentStopName = closest.shortName;
+      nextStopIndex = 1;
+    } else if (closest.index === ROUTE_STOPS.length - 1) {
+      // At Raj Vihar (City Terminal)
+      currentStopName = closest.shortName;
+      nextStopIndex = ROUTE_STOPS.length - 2;
+    } else {
+      currentStopName = closest.shortName;
+      nextStopIndex = headingTowardsCity
+        ? Math.min(ROUTE_STOPS.length - 1, closest.index + 1)
+        : Math.max(0, closest.index - 1);
+    }
+  } else {
+    // In transit between two stops [idx1, idx2]
+    const idx1 = Math.min(closest.index, secondClosest.index);
+    const idx2 = Math.max(closest.index, secondClosest.index);
+
+    if (headingTowardsCity) {
+      currentStopName = ROUTE_STOPS[idx1].shortName;
+      nextStopIndex = idx2;
+    } else {
+      currentStopName = ROUTE_STOPS[idx2].shortName;
+      nextStopIndex = idx1;
+    }
+  }
+
+  const nextStopObj = ROUTE_STOPS[nextStopIndex];
+  const distToNextMeters = getDistanceMeters(busLat, busLng, nextStopObj.lat, nextStopObj.lng);
+  let distToNextStr = "";
+  if (distToNextMeters < 1000) {
+    distToNextStr = `${Math.round(distToNextMeters)}m`;
+  } else {
+    distToNextStr = `${(distToNextMeters / 1000).toFixed(1)} km`;
+  }
+
+  return {
+    currentStop: currentStopName,
+    nextStop: nextStopObj.shortName,
+    isAtStop,
+    distToNextStr,
+  };
+}
+
+// 7. Process & Render Bus Data
 function updateBusesData(busList) {
   buses = busList || [];
   renderBusCards();
@@ -290,7 +423,7 @@ function updateBusesData(busList) {
   }
 }
 
-// 7. Render Sidebar Bus Cards
+// 8. Render Sidebar Bus Cards
 function renderBusCards() {
   if (!busCardsList) return;
   busCardsList.innerHTML = "";
@@ -318,6 +451,10 @@ function renderBusCards() {
     const speed = bus.live && bus.live.speedKmh != null ? `${bus.live.speedKmh.toFixed(0)} km/h` : "—";
     const lastSeen = bus.live ? timeAgo(bus.live.updatedAt) : "No signal yet";
 
+    const stopStatus = calculateCurrentAndNextStop(bus);
+    const currentLabel = stopStatus.isAtStop ? "AT STOP" : "CURRENT STOP";
+    const nextBadgeText = stopStatus.distToNextStr ? `NEXT STOP • ${stopStatus.distToNextStr}` : "NEXT STOP";
+
     card.innerHTML = `
       <div class="bus-card-top">
         <div class="bus-card-title-wrap">
@@ -328,7 +465,28 @@ function renderBusCards() {
         </div>
         <span class="live-pill ${statusClass}">${statusText}</span>
       </div>
-      <p class="bus-route-text">${bus.route || "City Shuttle Route"}</p>
+
+      <!-- Live Current Stop & Next Stop Dynamic Tracker -->
+      <div class="bus-live-stops-tracker">
+        <div class="stop-box-col current-box">
+          <span class="stop-tag-label current-tag">
+            <span class="stop-live-dot"></span> ${currentLabel}
+          </span>
+          <span class="stop-title-val" title="${stopStatus.currentStop}">${stopStatus.currentStop}</span>
+        </div>
+
+        <div class="stop-box-arrow">
+          <i class="fa-solid fa-arrow-right-long"></i>
+        </div>
+
+        <div class="stop-box-col next-box">
+          <span class="stop-tag-label next-tag">
+            <i class="fa-solid fa-location-dot"></i> ${nextBadgeText}
+          </span>
+          <span class="stop-title-val next-val-text" title="${stopStatus.nextStop}">${stopStatus.nextStop}</span>
+        </div>
+      </div>
+
       <div class="bus-card-meta">
         <span class="meta-speed"><i class="fa-solid fa-gauge"></i> ${speed}</span>
         <span class="meta-time"><i class="fa-regular fa-clock"></i> ${lastSeen}</span>
@@ -367,13 +525,31 @@ function renderStopsTimeline(busId) {
   if (selectedRouteName) selectedRouteName.textContent = `${bus.stops.length} Key Stops in Kurnool`;
   timelineContainer.innerHTML = "";
 
+  const stopStatus = calculateCurrentAndNextStop(bus);
+
   bus.stops.forEach((stop, idx) => {
     const item = document.createElement("div");
-    item.className = "stop-item";
+    const isCurrent = stopStatus.currentStop === stop.shortName || stopStatus.currentStop === stop.name;
+    const isNext = stopStatus.nextStop === stop.shortName || stopStatus.nextStop === stop.name;
+
+    let extraClass = "";
+    let badgeHtml = "";
+    if (isCurrent) {
+      extraClass = "is-current-stop";
+      badgeHtml = `<span class="timeline-stop-pill current-pill"><span class="pill-dot"></span> ${stopStatus.isAtStop ? "At Stop" : "Current"}</span>`;
+    } else if (isNext) {
+      extraClass = "is-next-stop";
+      badgeHtml = `<span class="timeline-stop-pill next-pill">Next ${stopStatus.distToNextStr ? `• ${stopStatus.distToNextStr}` : ""}</span>`;
+    }
+
+    item.className = `stop-item ${extraClass}`;
     item.innerHTML = `
       <div class="stop-bullet">${idx + 1}</div>
-      <span class="stop-name">${stop.name}</span>
-      <i class="fa-solid fa-location-dot" style="color: #94a3b8; font-size: 0.8rem;"></i>
+      <div class="stop-info-wrap">
+        <span class="stop-name">${stop.name}</span>
+        ${badgeHtml}
+      </div>
+      <i class="fa-solid fa-location-dot stop-pin-icon"></i>
     `;
     item.onclick = () => {
       map.flyTo([stop.lat, stop.lng], 16, { duration: 0.8 });
@@ -531,6 +707,7 @@ async function openTimetable(e) {
     if (typeof e.preventDefault === "function") e.preventDefault();
     if (typeof e.stopPropagation === "function") e.stopPropagation();
   }
+  logWebsiteVisit("Bus Timetable");
   const modal = document.getElementById("timetable-modal") || timetableModal;
   if (modal) {
     modal.style.setProperty("display", "flex", "important");
@@ -553,11 +730,34 @@ function closeTimetable(e) {
   }
 }
 
+// 14. Scroll to About Us Footer
+function scrollToAbout(e) {
+  if (e) {
+    if (typeof e.preventDefault === "function") e.preventDefault();
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+  }
+  if (window.innerWidth <= 768) {
+    expandSheet();
+  } else {
+    openSidebar();
+  }
+  const aboutSection = document.getElementById("about-us-section");
+  if (aboutSection) {
+    setTimeout(() => {
+      aboutSection.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  }
+}
+
 window.openTimetable = openTimetable;
 window.closeTimetable = closeTimetable;
+window.scrollToAbout = scrollToAbout;
+window.openAboutModal = scrollToAbout;
 
 window.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeTimetable(e);
+  if (e.key === "Escape") {
+    closeTimetable(e);
+  }
 });
 
 function renderTimetableModal() {
@@ -676,6 +876,9 @@ if (timetableModal) {
     if (e.target === timetableModal) closeTimetable();
   });
 }
+
+// About Event Listener
+if (openAboutBtn) openAboutBtn.addEventListener("click", scrollToAbout);
 
 modalTabs.forEach((tab) => {
   tab.addEventListener("click", () => {

@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Admin Dashboard — IIITDM Kurnool Bus & Website Analytics</title>
+  <meta name="description"
+    content="Dedicated Admin Dashboard for monitoring single campus bus operations and website usage analytics." />
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Admin Styles -->
+  <link rel="stylesheet" href="/admin/css/admin.css" />
+</head>
+
+<body>
+  <!-- Admin Authentication Lock Overlay (Shown when unauthenticated) -->
+  <div class="auth-overlay" id="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-header">
+        <div class="auth-icon-badge">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <h2>Admin Console</h2>
+        <p>IIITDM Kurnool Transit & Analytics Portal</p>
+      </div>
+
+      <form id="login-form" class="auth-form" onsubmit="handleAdminLogin(event)">
+        <div class="form-group">
+          <label for="admin-password-input"><i class="fa-solid fa-lock"></i> Master Password</label>
+          <div class="password-input-wrap">
+            <input type="password" id="admin-password-input" placeholder="Enter admin password..." autocomplete="current-password" required />
+            <button type="button" class="btn-toggle-pwd" onclick="togglePasswordVisibility()" aria-label="Toggle password visibility">
+              <i class="fa-solid fa-eye" id="eye-icon"></i>
+            </button>
+          </div>
+          <span class="hint-text">Default: <code>admin123</code></span>
+        </div>
+
+        <div class="auth-error-msg" id="auth-error-msg"></div>
+
+        <button type="submit" class="btn-primary btn-block" id="btn-login-submit">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In to Dashboard
+        </button>
+
+        <a href="/" class="btn-secondary-link">
+          <i class="fa-solid fa-arrow-left"></i> Return to Public Live Tracker
+        </a>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Admin Application Container -->
+  <div class="admin-app-layout" id="admin-app" style="display: none;">
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-logo-wrap">
+          <i class="fa-solid fa-shield-halved"></i>
+        </div>
+        <div class="brand-titles">
+          <h3>Admin Portal</h3>
+          <span>Campus Bus & Analytics</span>
+        </div>
+        <button class="btn-close-sidebar" id="btn-close-sidebar" aria-label="Close menu">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Navigation Links -->
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">ADMINISTRATION</div>
+        <button class="nav-item active" data-tab="dashboard">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="bus-logs">
+          <i class="fa-solid fa-bus"></i>
+          <span>Bus Daily Logs</span>
+        </button>
+        <button class="nav-item" data-tab="website-analytics">
+          <i class="fa-solid fa-chart-line"></i>
+          <span>Website Analytics</span>
+        </button>
+        <button class="nav-item" data-tab="statistics">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Statistics</span>
+        </button>
+        <button class="nav-item" data-tab="activity-logs">
+          <i class="fa-solid fa-clipboard-list"></i>
+          <span>Activity Logs</span>
+        </button>
+      </nav>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <a href="/" class="sidebar-ext-link" title="Open Public Tracker">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <span>Live Public Map</span>
+        </a>
+        <button class="btn-logout" onclick="handleAdminLogout()" title="Logout Admin">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Logout</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Sidebar Backdrop for Mobile -->
+    <div class="admin-backdrop" id="admin-backdrop"></div>
+
+    <!-- Main Content Area -->
+    <div class="admin-main-wrap">
+      <!-- Topbar Header with Date Filter -->
+      <header class="admin-topbar">
+        <div class="topbar-left">
+          <button class="btn-mobile-menu" id="btn-mobile-menu" aria-label="Toggle navigation">
+            <i class="fa-solid fa-bars-staggered"></i>
+          </button>
+          <div class="topbar-page-info">
+            <h2 id="current-tab-title">Dashboard Overview</h2>
+            <p id="current-tab-sub">Single Fleet (BUS-01) & Website Traffic Analytics</p>
+          </div>
+        </div>
+
+        <!-- Global Date Filter (Only Filter Permitted) -->
+        <div class="topbar-right">
+          <div class="date-filter-box">
+            <div class="date-filter-label">
+              <i class="fa-regular fa-calendar"></i>
+              <span>Select Date:</span>
+            </div>
+            <div class="date-input-group">
+              <input type="date" id="admin-date-picker" class="date-picker-input" />
+              <div class="quick-date-pills">
+                <button type="button" class="date-pill active" id="pill-today" onclick="setDateFilter('today')">Today</button>
+                <button type="button" class="date-pill" id="pill-yesterday" onclick="setDateFilter('yesterday')">Yesterday</button>
+              </div>
+            </div>
+          </div>
+
+          <button class="btn-topbar-refresh" onclick="refreshAdminData(true)" title="Refresh all statistics">
+            <i class="fa-solid fa-arrows-rotate" id="refresh-icon"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- Tab Content Views -->
+      <main class="admin-content-container">
+
+        <!-- ========================================================= -->
+        <!-- 1. DASHBOARD TAB                                          -->
+        <!-- ========================================================= -->
+        <section class="tab-pane active" id="tab-pane-dashboard">
+          <!-- Active Date Banner -->
+          <div class="date-status-banner">
+            <div class="banner-left">
+              <span class="banner-badge"><i class="fa-solid fa-calendar-check"></i> Filter Active</span>
+              <span class="banner-text">Showing Bus & Usage Data for <strong id="dash-formatted-date">Today (29 Sep 2026)</strong></span>
+            </div>
+            <div class="banner-right">
+              <span class="fleet-pill"><i class="fa-solid fa-bus"></i> Single Fleet: <strong>BUS-01 (City Shuttle)</strong></span>
+            </div>
+          </div>
+
+          <!-- Section 1: Bus Statistics for Selected Date -->
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle bus-icon">
+                  <i class="fa-solid fa-bus"></i>
+                </div>
+                <div>
+                  <h3>BUS STATISTICS</h3>
+                  <p>Daily operational metrics for BUS-01</p>
+                </div>
+              </div>
+              <div class="header-actions">
+                <span class="status-badge" id="dash-bus-status-badge">Not Started</span>
+                <button class="btn-sm btn-outline" onclick="openEditDailyLogModal()">
+                  <i class="fa-solid fa-pen-to-square"></i> Edit Log
+                </button>
+              </div>
+            </div>
+
+            <div class="metrics-grid">
+              <!-- Metric 1: Total Distance -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-blue">
+                  <i class="fa-solid fa-route"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Total Distance Travelled</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="dash-bus-distance">0.0</span>
+                    <span class="metric-unit">km</span>
+                  </div>
+                  <span class="metric-sub">Kurnool Route Coverage</span>
+                </div>
+              </div>
+
+              <!-- Metric 2: Operating Time -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-purple">
+                  <i class="fa-solid fa-stopwatch"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Total Operating Time</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="dash-bus-optime">0m</span>
+                  </div>
+                  <span class="metric-sub">Active Road Service</span>
+                </div>
+              </div>
+
+              <!-- Metric 3: Trip Start Time -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-emerald">
+                  <i class="fa-solid fa-clock"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Trip Start Time</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="dash-bus-start">—</span>
+                  </div>
+                  <span class="metric-sub">Departed Campus</span>
+                </div>
+              </div>
+
+              <!-- Metric 4: Trip End Time -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-amber">
+                  <i class="fa-solid fa-flag-checkered"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Trip End Time</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="dash-bus-end">—</span>
+                  </div>
+                  <span class="metric-sub">Return / Standby</span>
+                </div>
+              </div>
+
+              <!-- Metric 5: Number of Stops -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-cyan">
+                  <i class="fa-solid fa-location-dot"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Stops / Locations Visited</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="dash-bus-stops">0</span>
+                    <span class="metric-unit">Stops</span>
+                  </div>
+                  <span class="metric-sub">Campus ↔ Raj Vihar</span>
+                </div>
+              </div>
+
+              <!-- Metric 6: Current Location -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-rose">
+                  <i class="fa-solid fa-crosshairs"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Current Bus Location</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value-sm" id="dash-bus-location">IIITDM Kurnool Campus</span>
+                  </div>
+                  <span class="metric-sub" id="dash-bus-speed">Speed: 0 km/h</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 2: Website Analytics Summary for Selected Date -->
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle web-icon">
+                  <i class="fa-solid fa-chart-simple"></i>
+                </div>
+                <div>
+                  <h3>WEBSITE ANALYTICS</h3>
+                  <p>Page opens & user engagement for selected date</p>
+                </div>
+              </div>
+              <div class="header-actions">
+                <span class="info-pill" title="Opens count each page visit, not unique device IDs">
+                  <i class="fa-solid fa-circle-info"></i> Counts Website Opens (Not Devices)
+                </span>
+              </div>
+            </div>
+
+            <div class="metrics-grid">
+              <!-- Website Opens KPI -->
+              <div class="metric-card highlight-card">
+                <div class="metric-icon-wrap icon-indigo">
+                  <i class="fa-solid fa-eye"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Total Website Opens</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value text-xl" id="dash-web-opens">0</span>
+                  </div>
+                  <span class="metric-sub">Opens recorded on this date</span>
+                </div>
+              </div>
+
+              <!-- Peak Usage Hour KPI -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-amber">
+                  <i class="fa-solid fa-bolt"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Peak Usage Hour</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="dash-web-peakhour">None</span>
+                  </div>
+                  <span class="metric-sub" id="dash-web-peakcount">0 opens recorded</span>
+                </div>
+              </div>
+
+              <!-- Most Visited Page KPI -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-emerald">
+                  <i class="fa-solid fa-fire"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Most Visited Page</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value-sm" id="dash-web-top-page">—</span>
+                  </div>
+                  <span class="metric-sub">Live tracker interactive view</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Mini Hourly Distribution Preview -->
+            <div class="chart-box-container">
+              <div class="chart-header">
+                <div class="chart-title-group">
+                  <h4>Hourly Website Opens Distribution</h4>
+                  <span>Number of opens per hour (12 AM – 11 PM)</span>
+                </div>
+                <button class="btn-sm btn-outline" onclick="switchTab('website-analytics')">
+                  View Full Analytics <i class="fa-solid fa-arrow-right"></i>
+                </button>
+              </div>
+              <div class="hourly-chart-wrapper" id="dash-hourly-chart">
+                <!-- Rendered dynamically by JS -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 2. BUS / DAILY LOGS TAB                                   -->
+        <!-- ========================================================= -->
+        <section class="tab-pane" id="tab-pane-bus-logs">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle bus-icon">
+                  <i class="fa-solid fa-clipboard-check"></i>
+                </div>
+                <div>
+                  <h3>Single Bus Daily Logs</h3>
+                  <p>Daily transit log history for BUS-01 (City Shuttle)</p>
+                </div>
+              </div>
+              <div class="header-actions">
+                <button class="btn-primary btn-sm" onclick="openEditDailyLogModal()">
+                  <i class="fa-solid fa-plus"></i> Update Selected Date Log
+                </button>
+              </div>
+            </div>
+
+            <!-- Single Bus Info Bar -->
+            <div class="bus-meta-banner">
+              <div class="meta-item">
+                <span class="meta-label">Assigned Vehicle</span>
+                <strong>BUS-01 (City Shuttle)</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Campus Route</span>
+                <span>IIITDM Kurnool ↔ Raj Vihar</span>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Selected Date</span>
+                <strong id="logs-selected-date-str">—</strong>
+              </div>
+              <div class="meta-item">
+                <span class="meta-label">Log Status for Date</span>
+                <span class="status-badge" id="logs-selected-status-badge">Not Started</span>
+              </div>
+            </div>
+
+            <!-- Table of Daily Logs -->
+            <div class="table-responsive">
+              <table class="admin-table" id="daily-logs-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Distance</th>
+                    <th>Operating Time</th>
+                    <th>Starting Location</th>
+                    <th>Ending Location</th>
+                    <th>Current Location</th>
+                    <th>Stops</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="daily-logs-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 3. WEBSITE ANALYTICS TAB                                  -->
+        <!-- ========================================================= -->
+        <section class="tab-pane" id="tab-pane-website-analytics">
+          <!-- Metric Explanation Notice -->
+          <div class="analytics-notice-box">
+            <div class="notice-icon">
+              <i class="fa-solid fa-circle-info"></i>
+            </div>
+            <div class="notice-text">
+              <strong>Measurement Rule:</strong> Website usage tracks actual <strong>Website Opens / Page Visits</strong>.
+              If 1 person opens the website 10 times, it is counted as <code>Website Opens = 10</code> (NOT <code>Devices = 1</code>).
+            </div>
+          </div>
+
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle web-icon">
+                  <i class="fa-solid fa-chart-column"></i>
+                </div>
+                <div>
+                  <h3>Website Usage & Analytics</h3>
+                  <p>Traffic patterns and hourly usage breakdown</p>
+                </div>
+              </div>
+              <span class="date-indicator" id="analytics-date-display">Date: —</span>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="metrics-grid">
+              <div class="metric-card highlight-card">
+                <div class="metric-icon-wrap icon-indigo">
+                  <i class="fa-solid fa-arrow-pointer"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Total Website Opens</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value text-xl" id="analytics-total-opens">0</span>
+                  </div>
+                  <span class="metric-sub">All page loads on selected date</span>
+                </div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-amber">
+                  <i class="fa-solid fa-clock-rotate-left"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Peak Usage Hour</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="analytics-peak-hour">None</span>
+                  </div>
+                  <span class="metric-sub" id="analytics-peak-count">0 Opens recorded</span>
+                </div>
+              </div>
+
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-emerald">
+                  <i class="fa-solid fa-window-restore"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Most Visited Section</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value-sm" id="analytics-top-section">—</span>
+                  </div>
+                  <span class="metric-sub">Primary user destination</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 24-Hour Opens Chart -->
+            <div class="chart-box-container">
+              <div class="chart-header">
+                <div class="chart-title-group">
+                  <h4>Hour → Number of Website Opens</h4>
+                  <span>24-Hour distribution of visits on selected date</span>
+                </div>
+                <div class="chart-legend">
+                  <span class="legend-dot normal-dot"></span> Regular Hours
+                  <span class="legend-dot peak-dot"></span> Peak Hour
+                </div>
+              </div>
+
+              <div class="hourly-chart-wrapper full-chart" id="analytics-full-chart">
+                <!-- SVG/HTML bars generated by JS -->
+              </div>
+            </div>
+
+            <!-- Breakdown by Page -->
+            <div class="breakdown-grid">
+              <div class="breakdown-card">
+                <h4><i class="fa-solid fa-layer-group"></i> Opens by Page / Section</h4>
+                <div class="breakdown-list" id="analytics-page-breakdown">
+                  <!-- Generated by JS -->
+                </div>
+              </div>
+              <div class="breakdown-card">
+                <h4><i class="fa-solid fa-lightbulb"></i> Insights for Admin</h4>
+                <ul class="insights-list" id="analytics-insights">
+                  <li><i class="fa-solid fa-circle-check text-emerald"></i> Real-time tracking counts every page load & visit live.</li>
+                  <li><i class="fa-solid fa-circle-check text-emerald"></i> Peak hours indicate highest passenger inquiry intervals.</li>
+                  <li><i class="fa-solid fa-circle-check text-emerald"></i> GPS coordinates and odometer synchronize with Onelap hardware.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 4. STATISTICS TAB                                         -->
+        <!-- ========================================================= -->
+        <section class="tab-pane" id="tab-pane-statistics">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle stats-icon">
+                  <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <div>
+                  <h3>All-Time Fleet & Website Statistics</h3>
+                  <p>Aggregate performance metrics across all recorded days</p>
+                </div>
+              </div>
+              <span class="info-pill"><i class="fa-solid fa-infinity"></i> Cumulative Totals</span>
+            </div>
+
+            <div class="metrics-grid">
+              <!-- Stat 1: Total Distance -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-blue">
+                  <i class="fa-solid fa-road"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">All-Time Bus Distance</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="stats-total-dist">0.0</span>
+                    <span class="metric-unit">km</span>
+                  </div>
+                  <span class="metric-sub">Cumulative road mileage</span>
+                </div>
+              </div>
+
+              <!-- Stat 2: Average Daily Distance -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-cyan">
+                  <i class="fa-solid fa-gauge"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Average Daily Distance</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="stats-avg-dist">0.0</span>
+                    <span class="metric-unit">km/day</span>
+                  </div>
+                  <span class="metric-sub">Consistent route execution</span>
+                </div>
+              </div>
+
+              <!-- Stat 3: Total Operating Hours -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-purple">
+                  <i class="fa-solid fa-clock"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Total Operating Hours</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="stats-total-hours">0.0</span>
+                    <span class="metric-unit">hours</span>
+                  </div>
+                  <span class="metric-sub">Active fleet service time</span>
+                </div>
+              </div>
+
+              <!-- Stat 4: All-Time Website Opens -->
+              <div class="metric-card highlight-card">
+                <div class="metric-icon-wrap icon-indigo">
+                  <i class="fa-solid fa-globe"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">All-Time Website Opens</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value text-xl" id="stats-total-opens">0</span>
+                  </div>
+                  <span class="metric-sub">Total user visits recorded</span>
+                </div>
+              </div>
+
+              <!-- Stat 5: Average Daily Opens -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-emerald">
+                  <i class="fa-solid fa-users-viewfinder"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Average Daily Opens</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value" id="stats-avg-opens">0</span>
+                    <span class="metric-unit">opens/day</span>
+                  </div>
+                  <span class="metric-sub">Daily student access rate</span>
+                </div>
+              </div>
+
+              <!-- Stat 6: Peak Traffic Day -->
+              <div class="metric-card">
+                <div class="metric-icon-wrap icon-amber">
+                  <i class="fa-solid fa-trophy"></i>
+                </div>
+                <div class="metric-body">
+                  <span class="metric-label">Peak Traffic Day</span>
+                  <div class="metric-value-wrap">
+                    <span class="metric-value-sm" id="stats-peak-day">—</span>
+                  </div>
+                  <span class="metric-sub" id="stats-peak-day-opens">0 opens recorded</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 5. ACTIVITY LOGS TAB                                      -->
+        <!-- ========================================================= -->
+        <section class="tab-pane" id="tab-pane-activity-logs">
+          <div class="section-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle log-icon">
+                  <i class="fa-solid fa-list-check"></i>
+                </div>
+                <div>
+                  <h3>Admin Activity Audit Log</h3>
+                  <p>Security and operational action trail</p>
+                </div>
+              </div>
+              <div class="header-actions">
+                <button class="btn-sm btn-outline" onclick="openAddAuditModal()">
+                  <i class="fa-solid fa-plus"></i> Add Audit Note
+                </button>
+              </div>
+            </div>
+
+            <!-- Activity Logs Timeline Table -->
+            <div class="table-responsive">
+              <table class="admin-table" id="activity-logs-table">
+                <thead>
+                  <tr>
+                    <th style="width: 180px;">Timestamp</th>
+                    <th style="width: 260px;">Action</th>
+                    <th>Related Record / Data</th>
+                  </tr>
+                </thead>
+                <tbody id="activity-logs-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal: Edit / Update Daily Bus Log -->
+  <div class="admin-modal-overlay" id="edit-log-modal" style="display: none;">
+    <div class="admin-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-pen-to-square"></i>
+          <h3>Update Daily Bus Log</h3>
+        </div>
+        <button class="btn-close-modal" onclick="closeEditDailyLogModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="edit-log-form" onsubmit="handleSaveDailyLog(event)">
+        <div class="modal-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Log Date</label>
+              <input type="text" id="modal-log-date" readonly class="input-readonly" />
+            </div>
+            <div class="form-group">
+              <label>Bus Status</label>
+              <select id="modal-log-status" class="form-select">
+                <option value="Not Started">Not Started</option>
+                <option value="Active">Active</option>
+                <option value="Completed">Completed</option>
+                <option value="Offline">Offline</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Trip Start Time</label>
+              <input type="text" id="modal-log-start" placeholder="e.g. 06:30 AM" required />
+            </div>
+            <div class="form-group">
+              <label>Trip End Time</label>
+              <input type="text" id="modal-log-end" placeholder="e.g. 10:54 AM or —" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Total Distance Travelled (km)</label>
+              <input type="number" step="0.1" id="modal-log-distance" placeholder="42.6" required />
+            </div>
+            <div class="form-group">
+              <label>Operating Time (minutes)</label>
+              <input type="number" id="modal-log-optime" placeholder="204" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Starting Location</label>
+              <input type="text" id="modal-log-starting" value="IIITDM Kurnool Campus" required />
+            </div>
+            <div class="form-group">
+              <label>Ending Location</label>
+              <input type="text" id="modal-log-ending" value="Raj Vihar" required />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label>Current Location</label>
+              <input type="text" id="modal-log-current" placeholder="e.g. En Route (C-Camp)" />
+            </div>
+            <div class="form-group">
+              <label>Stops / Locations Visited</label>
+              <input type="number" id="modal-log-stops" value="5" min="1" max="20" required />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeEditDailyLogModal()">Cancel</button>
+          <button type="submit" class="btn-primary" id="btn-save-log">
+            <i class="fa-solid fa-floppy-disk"></i> Save Daily Log
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal: Add Manual Audit Note -->
+  <div class="admin-modal-overlay" id="add-audit-modal" style="display: none;">
+    <div class="admin-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <i class="fa-solid fa-plus"></i>
+          <h3>Add Admin Activity Note</h3>
+        </div>
+        <button class="btn-close-modal" onclick="closeAddAuditModal()">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="add-audit-form" onsubmit="handleSaveAuditNote(event)">
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Action Title</label>
+            <input type="text" id="modal-audit-action" placeholder="e.g. Route inspection verified" required />
+          </div>
+          <div class="form-group">
+            <label>Details / Related Record</label>
+            <textarea id="modal-audit-details" rows="3" placeholder="Enter details about this admin action..." required></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" onclick="closeAddAuditModal()">Cancel</button>
+          <button type="submit" class="btn-primary">
+            <i class="fa-solid fa-check"></i> Record Audit Entry
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin Application Logic -->
+  <script src="/admin/js/admin.js"></script>
+</body>
+
+</html>
