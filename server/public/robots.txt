@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://vahini.trigunrobotics.com/sitemap.xml
+Sitemap: https://vaahini.trigunrobotics.com/sitemap.xml
