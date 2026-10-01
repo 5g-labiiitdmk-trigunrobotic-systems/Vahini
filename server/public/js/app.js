@@ -41,8 +41,8 @@ const timetableTbody = document.getElementById("timetable-tbody");
 const modalTabs = document.querySelectorAll(".modal-tab");
 const filterPills = document.querySelectorAll(".filter-pill");
 
-// About Button Reference
-const openAboutBtn = document.getElementById("open-about-btn");
+// About Button Reference (no longer in header; modal opened from sidebar copyright bar)
+const openAboutBtn = null;
 
 // Floating HUD
 const floatingBusHud = document.getElementById("floating-bus-hud");
@@ -804,33 +804,30 @@ function closeTimetable(e) {
   }
 }
 
-// 14. Scroll to About Us Footer
-function scrollToAbout(e) {
-  if (e) {
-    if (typeof e.preventDefault === "function") e.preventDefault();
-    if (typeof e.stopPropagation === "function") e.stopPropagation();
-  }
-  if (window.innerWidth <= 768) {
-    expandSheet();
-  } else {
-    openSidebar();
-  }
-  const aboutSection = document.getElementById("about-us-section");
-  if (aboutSection) {
-    setTimeout(() => {
-      aboutSection.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 120);
-  }
+// 14. About Us Modal
+function openAboutModal() {
+  const modal = document.getElementById("about-modal");
+  if (!modal) return;
+  modal.style.removeProperty("display");
+  modal.style.setProperty("display", "flex", "important");
+}
+
+function closeAboutModal() {
+  const modal = document.getElementById("about-modal");
+  if (!modal) return;
+  modal.style.removeProperty("display");
+  modal.style.setProperty("display", "none", "important");
 }
 
 window.openTimetable = openTimetable;
 window.closeTimetable = closeTimetable;
-window.scrollToAbout = scrollToAbout;
-window.openAboutModal = scrollToAbout;
+window.openAboutModal = openAboutModal;
+window.closeAboutModal = closeAboutModal;
 
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     closeTimetable(e);
+    closeAboutModal();
   }
 });
 
@@ -950,9 +947,6 @@ if (timetableModal) {
     if (e.target === timetableModal) closeTimetable();
   });
 }
-
-// About Event Listener
-if (openAboutBtn) openAboutBtn.addEventListener("click", scrollToAbout);
 
 modalTabs.forEach((tab) => {
   tab.addEventListener("click", () => {

@@ -1607,6 +1607,36 @@ html, body {
   line-height: 1.4;
 }
 
+/* ===== Sidebar Copyright Bar ===== */
+.sidebar-copyright-bar {
+  padding: 10px 16px;
+  border-top: 1px solid var(--card-border);
+  background: #f8fafc;
+  flex-shrink: 0;
+  text-align: center;
+}
+
+.sidebar-copyright-bar p {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+.sidebar-copyright-bar p + p {
+  margin-top: 2px;
+}
+
+/* ===== About Us Modal sizing ===== */
+.about-modal-window {
+  max-width: 560px;
+}
+
+.about-modal-body {
+  padding: 20px 24px;
+}
+
 .copyright-link {
   color: inherit;
   text-decoration: underline;
