@@ -205,3 +205,16 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 -- 5. Example: manually delete a vehicle via SQL
 --    (Uncomment and edit to use)
 -- SELECT delete_vehicle('BUS-02');
+
+-- =========================================================
+-- Day-Type Override Table (Admin can set Weekday / Holiday)
+-- =========================================================
+
+CREATE TABLE IF NOT EXISTS day_overrides (
+  date_str      TEXT PRIMARY KEY,           -- e.g. "2026-09-29"
+  override_type TEXT NOT NULL,              -- "weekday" | "holiday"
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE day_overrides DISABLE ROW LEVEL SECURITY;
+GRANT SELECT, INSERT, UPDATE, DELETE ON day_overrides TO anon, authenticated;

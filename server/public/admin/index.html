@@ -177,6 +177,45 @@
             </div>
           </div>
 
+          <!-- Section 0: Today's Schedule Type Override -->
+          <div class="section-card day-override-card">
+            <div class="section-card-header">
+              <div class="header-titles">
+                <div class="icon-circle" style="background: linear-gradient(135deg,#7c3aed,#4f46e5);">
+                  <i class="fa-solid fa-calendar-day"></i>
+                </div>
+                <div>
+                  <h3>TODAY'S SCHEDULE TYPE</h3>
+                  <p>Override the timetable shown to students on the live tracker</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="day-override-body">
+              <div class="day-override-row">
+                <div class="day-override-info">
+                  <span class="day-override-date-label" id="override-date-label">—</span>
+                  <span class="day-override-auto-hint" id="override-auto-hint">Auto-detected from calendar</span>
+                </div>
+                <div class="day-override-control">
+                  <label for="day-override-select" class="day-override-label">Schedule for today:</label>
+                  <select id="day-override-select" class="day-override-select" onchange="handleDayOverrideChange(this.value)">
+                    <option value="auto">Auto (use calendar)</option>
+                    <option value="weekday">Weekday (Mon–Fri)</option>
+                    <option value="holiday">Holiday / Weekend</option>
+                  </select>
+                  <span class="day-override-saved-badge" id="override-saved-badge" style="display:none;">
+                    <i class="fa-solid fa-circle-check"></i> Saved
+                  </span>
+                </div>
+              </div>
+              <p class="day-override-note">
+                <i class="fa-solid fa-circle-info"></i>
+                Changes take effect immediately on the student-facing live tracker. Use <strong>Holiday / Weekend</strong> to switch to the reduced timetable on public holidays.
+              </p>
+            </div>
+          </div>
+
           <!-- Section 1: Bus Statistics for Selected Date -->
           <div class="section-card">
             <div class="section-card-header">

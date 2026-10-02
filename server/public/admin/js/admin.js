@@ -263,6 +263,7 @@ async function refreshAdminData(animateIcon = false) {
 
   try {
     await Promise.all([
+      loadDayOverride(),
       loadDashboardStats(),
       loadDailyLogs(),
       loadWebsiteAnalytics(),
@@ -285,6 +286,64 @@ function loadCurrentTabData() {
   else if (activeTab === "statistics") loadStatisticsOverview();
   else if (activeTab === "activity-logs") loadActivityLogs();
   else if (activeTab === "vehicles") loadVehicles();
+}
+
+// 0. Day Override
+async function loadDayOverride() {
+  try {
+    const res = await fetchWithAuth(`/api/v1/admin/day-override?date=${selectedDateStr}&_t=${Date.now()}`);
+    const data = await res.json();
+
+    const select = document.getElementById("day-override-select");
+    const dateLabel = document.getElementById("override-date-label");
+    const autoHint = document.getElementById("override-auto-hint");
+
+    if (dateLabel) dateLabel.textContent = formatDateDisplay(selectedDateStr);
+
+    if (select) {
+      select.value = data.type || "auto";
+    }
+
+    // Update auto-hint text to show what the calendar would choose
+    if (autoHint) {
+      const d = new Date(selectedDateStr + "T00:00:00");
+      const day = d.getDay();
+      const isWeekend = day === 0 || day === 6;
+      const calendarType = isWeekend ? "Holiday / Weekend" : "Weekday";
+      const overrideActive = data.type && data.type !== "auto";
+      autoHint.textContent = overrideActive
+        ? `Overriding calendar (would be: ${calendarType})`
+        : `Auto-detected from calendar: ${calendarType}`;
+      autoHint.style.color = overrideActive ? "#7c3aed" : "var(--text-muted)";
+    }
+  } catch (err) {
+    console.error("Failed to load day override:", err);
+  }
+}
+
+async function handleDayOverrideChange(value) {
+  const badge = document.getElementById("override-saved-badge");
+  if (badge) badge.style.display = "none";
+
+  try {
+    const res = await fetchWithAuth("/api/v1/admin/day-override", {
+      method: "PUT",
+      body: JSON.stringify({ dateStr: selectedDateStr, type: value === "auto" ? null : value }),
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (badge) {
+        badge.style.display = "inline-flex";
+        setTimeout(() => { badge.style.display = "none"; }, 2500);
+      }
+      // Reload override row to update hint text
+      await loadDayOverride();
+    } else {
+      alert("Failed to save override: " + (data.error || "Unknown error"));
+    }
+  } catch (err) {
+    alert("Error saving day override: " + err.message);
+  }
 }
 
 // 1. Dashboard Tab Data
@@ -926,5 +985,6 @@ window.openAddVehicleModal = openAddVehicleModal;
 window.closeAddVehicleModal = closeAddVehicleModal;
 window.handleSaveVehicle = handleSaveVehicle;
 window.confirmDeleteVehicle = confirmDeleteVehicle;
+window.handleDayOverrideChange = handleDayOverrideChange;
 
 window.addEventListener("DOMContentLoaded", checkAuthState);

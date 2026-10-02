@@ -110,11 +110,36 @@ async function loadSchedule() {
   try {
     const res = await fetch("/api/v1/schedule");
     scheduleData = await res.json();
+    // dayOverride comes from the schedule response: "weekday" | "holiday" | null
     renderAllStopsOnMap();
     updateNextBusBanner();
   } catch (err) {
     console.error("Failed to load schedule:", err);
   }
+}
+
+// Returns true if today should be treated as a holiday/weekend schedule,
+// respecting any admin override stored in scheduleData.dayOverride.
+function isTodayHoliday() {
+  if (!scheduleData) {
+    const now = new Date();
+    const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+    const ist = new Date(utc + 3600000 * 5.5);
+    return ist.getDay() === 0 || ist.getDay() === 6;
+  }
+  if (scheduleData.dayOverride === "holiday") return true;
+  if (scheduleData.dayOverride === "weekday") return false;
+  // No override — use calendar
+  const now = new Date();
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
+  const ist = new Date(utc + 3600000 * 5.5);
+  return ist.getDay() === 0 || ist.getDay() === 6;
+}
+
+// Returns the correct schedule array for today (override-aware).
+function getTodaySchedule() {
+  if (!scheduleData) return [];
+  return isTodayHoliday() ? (scheduleData.weekend || []) : (scheduleData.weekday || []);
 }
 
 // 3. Render Official Stop Points on Map
@@ -152,8 +177,7 @@ function updateNextBusBanner() {
   const currentMins = istDate.getHours() * 60 + istDate.getMinutes();
   const currentSeconds = istDate.getSeconds();
 
-  const isWeekend = istDate.getDay() === 0 || istDate.getDay() === 6;
-  const currentSchedule = isWeekend ? scheduleData.weekend : scheduleData.weekday;
+  const currentSchedule = getTodaySchedule();
 
   let currentTrip = null;
   let nextTrip = null;
@@ -172,7 +196,6 @@ function updateNextBusBanner() {
   }
 
   if (currentTrip) {
-    // Active trip en route right now
     nextBusBadge.className = "next-bus-badge active-trip";
     badgeStatusText.textContent = "Bus En Route Now";
     heroFromStop.textContent = currentTrip.from;
@@ -186,7 +209,6 @@ function updateNextBusBanner() {
     const secStr = remainingSecs === 60 ? "00" : remainingSecs.toString().padStart(2, "0");
     heroCountdownClock.textContent = `${Math.max(0, remainingMins)}m ${secStr}s`;
   } else if (nextTrip) {
-    // Upcoming trip today
     nextBusBadge.className = "next-bus-badge";
     badgeStatusText.textContent = "Next Scheduled Bus";
     heroFromStop.textContent = nextTrip.from;
@@ -207,10 +229,16 @@ function updateNextBusBanner() {
       heroCountdownClock.textContent = `${Math.max(0, mins)}m ${secStr}s`;
     }
   } else {
-    // Trips finished for today, next trip is tomorrow morning
-    const tomorrowIsWeekend = (istDate.getDay() + 1) % 7 === 0 || (istDate.getDay() + 1) % 7 === 6;
-    const tomorrowSchedule = tomorrowIsWeekend ? scheduleData.weekend : scheduleData.weekday;
-    const firstTrip = tomorrowSchedule[0];
+    // All trips done today — show first trip tomorrow
+    // Tomorrow's type: if today was overridden, tomorrow falls back to calendar
+    const tomorrowIsHoliday = (() => {
+      const d = istDate.getDay();
+      const tomorrowDay = (d + 1) % 7;
+      return tomorrowDay === 0 || tomorrowDay === 6;
+    })();
+    const tomorrowSchedule = tomorrowIsHoliday ? scheduleData.weekend : scheduleData.weekday;
+    const firstTrip = (tomorrowSchedule || [])[0];
+    if (!firstTrip) return;
 
     nextBusBadge.className = "next-bus-badge";
     badgeStatusText.textContent = "First Bus Tomorrow";
@@ -347,17 +375,12 @@ function getTripStopSequence(trip) {
   }
 }
 
-// Get the active trip right now from scheduleData (client-side mirror of getStatus())
+// Get the active trip right now from scheduleData (override-aware)
 function getActiveTrip() {
   if (!scheduleData) return null;
 
   const currentMins = getCurrentISTMinutes();
-  const now = new Date();
-  const utc = now.getTime() + now.getTimezoneOffset() * 60000;
-  const ist = new Date(utc + 3600000 * 5.5);
-  const isWeekend = ist.getDay() === 0 || ist.getDay() === 6;
-  const schedule = isWeekend ? scheduleData.weekend : scheduleData.weekday;
-  if (!schedule) return null;
+  const schedule = getTodaySchedule();
 
   for (const trip of schedule) {
     if (currentMins >= trip.pickupMins && currentMins < trip.dropMins) {
@@ -845,16 +868,21 @@ function renderTimetableModal() {
   const now = new Date();
   const utc = now.getTime() + now.getTimezoneOffset() * 60000;
   const istDate = new Date(utc + 3600000 * 5.5);
-  const isWeekendToday = istDate.getDay() === 0 || istDate.getDay() === 6;
+  const isHolidayToday = isTodayHoliday(); // override-aware
   const currentMins = istDate.getHours() * 60 + istDate.getMinutes();
 
   if (todayInfo) {
-    todayInfo.textContent = `Today: ${istDate.toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric" })} (${isWeekendToday ? "Weekend/Holiday Schedule" : "Monday to Friday Schedule"})`;
+    const overrideLabel = scheduleData.dayOverride === "holiday"
+      ? "Holiday Schedule (Admin Override)"
+      : scheduleData.dayOverride === "weekday"
+        ? "Weekday Schedule (Admin Override)"
+        : isHolidayToday ? "Weekend / Holiday Schedule" : "Monday to Friday Schedule";
+    todayInfo.textContent = `Today: ${istDate.toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric" })} — ${overrideLabel}`;
   }
 
   let schedule = [];
   if (activeScheduleTab === "today") {
-    schedule = isWeekendToday ? scheduleData.weekend : scheduleData.weekday;
+    schedule = getTodaySchedule(); // override-aware
   } else if (activeScheduleTab === "weekday") {
     schedule = scheduleData.weekday;
   } else {
@@ -862,6 +890,11 @@ function renderTimetableModal() {
   }
 
   schedule = schedule || [];
+
+  // For active/next highlighting — only meaningful when viewing today's tab
+  const isTodayTab = activeScheduleTab === "today" ||
+    (activeScheduleTab === "weekday" && !isHolidayToday) ||
+    (activeScheduleTab === "weekend" && isHolidayToday);
 
   // Filter direction
   let filtered = schedule;
@@ -880,7 +913,6 @@ function renderTimetableModal() {
   }
 
   filtered.forEach((trip, idx) => {
-    const isTodayTab = activeScheduleTab === "today" || (activeScheduleTab === "weekday" && !isWeekendToday) || (activeScheduleTab === "weekend" && isWeekendToday);
     const isActive = isTodayTab && currentMins >= trip.pickupMins && currentMins < trip.dropMins;
     const isNext = isTodayTab && !isActive && trip.pickupMins > currentMins && (!filtered.some((t) => t.pickupMins > currentMins && t.pickupMins < trip.pickupMins));
 

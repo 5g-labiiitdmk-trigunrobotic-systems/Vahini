@@ -1449,3 +1449,104 @@ html, body {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   Day-Type Override Card
+   ========================================================= */
+.day-override-card {
+  border-left: 4px solid #7c3aed;
+}
+
+.day-override-body {
+  padding: 0 4px 4px;
+}
+
+.day-override-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 14px 0 10px;
+}
+
+.day-override-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.day-override-date-label {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.day-override-auto-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.day-override-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.day-override-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.day-override-select {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg);
+  color: var(--text-main);
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  min-width: 200px;
+}
+
+.day-override-select:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.12);
+}
+
+.day-override-saved-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ecfdf5;
+  color: #059669;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid #a7f3d0;
+}
+
+.day-override-note {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: #f5f3ff;
+  border: 1px solid #ede9fe;
+  border-radius: 8px;
+  padding: 10px 14px;
+  line-height: 1.6;
+  margin-top: 6px;
+}
+
+.day-override-note i {
+  color: #7c3aed;
+  margin-right: 4px;
+}

@@ -786,6 +786,69 @@ function createStore() {
     return memoryAdminLogs.slice(0, limit);
   }
 
+  // =========================================================
+  // Day-Type Override (admin sets Weekday / Holiday for today)
+  // =========================================================
+
+  // In-memory: { dateStr, type }  where type = "weekday" | "holiday"
+  const memoryDayOverrides = new Map(); // dateStr -> "weekday" | "holiday"
+
+  async function getDayOverride(dateStr) {
+    const key = dateStr || formatDateStr();
+
+    // Try Supabase first
+    if (supabase) {
+      try {
+        const { data, error } = await supabase
+          .from("day_overrides")
+          .select("override_type")
+          .eq("date_str", key)
+          .single();
+        if (!error && data) {
+          memoryDayOverrides.set(key, data.override_type);
+          return { dateStr: key, type: data.override_type };
+        }
+      } catch (_) {}
+    }
+
+    // In-memory fallback
+    const mem = memoryDayOverrides.get(key);
+    if (mem) return { dateStr: key, type: mem };
+
+    return { dateStr: key, type: null }; // null = use auto (calendar-based)
+  }
+
+  async function setDayOverride(dateStr, type) {
+    // type must be "weekday", "holiday", or null (clear override)
+    const key = dateStr || formatDateStr();
+
+    if (!type || type === "auto") {
+      memoryDayOverrides.delete(key);
+      if (supabase) {
+        try {
+          await supabase.from("day_overrides").delete().eq("date_str", key);
+        } catch (_) {}
+      }
+      return { dateStr: key, type: null };
+    }
+
+    memoryDayOverrides.set(key, type);
+
+    if (supabase) {
+      try {
+        await supabase.from("day_overrides").upsert({
+          date_str: key,
+          override_type: type,
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn("Supabase day_overrides upsert error:", err.message);
+      }
+    }
+
+    return { dateStr: key, type };
+  }
+
   return {
     ensureSeed,
     listBuses,
@@ -804,6 +867,9 @@ function createStore() {
     getStatisticsOverview,
     recordAdminActivity,
     listAdminActivities,
+    // Day-type override
+    getDayOverride,
+    setDayOverride,
   };
 }
 

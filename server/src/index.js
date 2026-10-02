@@ -43,14 +43,21 @@ app.get("/api/v1/campus", (_req, res) => {
 
 
 // Schedule API
-app.get("/api/v1/schedule", (_req, res) => {
-  const status = schedule.getStatus();
-  res.json({
-    stops: schedule.STOPS,
-    weekday: schedule.WEEKDAY_SCHEDULE,
-    weekend: schedule.WEEKEND_SCHEDULE,
-    status,
-  });
+app.get("/api/v1/schedule", async (_req, res) => {
+  try {
+    const status = schedule.getStatus();
+    const override = await store.getDayOverride(null); // today
+    res.json({
+      stops: schedule.STOPS,
+      weekday: schedule.WEEKDAY_SCHEDULE,
+      weekend: schedule.WEEKEND_SCHEDULE,
+      status,
+      dayOverride: override.type || null, // "weekday" | "holiday" | null
+    });
+  } catch (err) {
+    console.error("Schedule API error:", err);
+    res.status(500).json({ error: "Failed to fetch schedule" });
+  }
 });
 
 app.get("/api/v1/buses", async (_req, res) => {
@@ -251,6 +258,46 @@ app.post("/api/v1/admin/activity-logs", requireAdminAuth, async (req, res) => {
   } catch (err) {
     console.error("Create activity log error:", err);
     res.status(500).json({ error: "Failed to create activity log" });
+  }
+});
+
+// Public: Get today's day-type override (used by main page timetable)
+app.get("/api/v1/day-override", async (req, res) => {
+  try {
+    const dateStr = req.query.date || null;
+    const override = await store.getDayOverride(dateStr);
+    res.json(override);
+  } catch (err) {
+    console.error("Day override GET error:", err);
+    res.status(500).json({ error: "Failed to fetch day override" });
+  }
+});
+
+// Admin: Get day-type override (auth-protected mirror of public endpoint)
+app.get("/api/v1/admin/day-override", requireAdminAuth, async (req, res) => {
+  try {
+    const dateStr = req.query.date || null;
+    const override = await store.getDayOverride(dateStr);
+    res.json(override);
+  } catch (err) {
+    console.error("Admin day override GET error:", err);
+    res.status(500).json({ error: "Failed to fetch day override" });
+  }
+});
+
+// Admin: Set today's day-type override
+app.put("/api/v1/admin/day-override", requireAdminAuth, async (req, res) => {
+  try {
+    const { dateStr, type } = req.body || {};
+    const result = await store.setDayOverride(dateStr, type);
+    await store.recordAdminActivity({
+      action: "Day type override set",
+      details: `Date ${result.dateStr} set to "${result.type || "auto (cleared)"}"`,
+    });
+    res.json({ ok: true, ...result });
+  } catch (err) {
+    console.error("Day override PUT error:", err);
+    res.status(500).json({ error: "Failed to set day override" });
   }
 });
 
