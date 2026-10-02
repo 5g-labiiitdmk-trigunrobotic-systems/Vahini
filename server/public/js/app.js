@@ -581,6 +581,9 @@ function renderBusCards() {
         <span class="meta-speed"><i class="fa-solid fa-gauge"></i> ${speed}</span>
         <span class="meta-time"><i class="fa-regular fa-clock"></i> ${lastSeen}</span>
       </div>
+      <div class="bus-card-accuracy-note">
+        <i class="fa-solid fa-circle-info"></i> Location is accurate to ± 100m*
+      </div>
     `;
 
     card.onclick = () => selectBus(bus.id, true);

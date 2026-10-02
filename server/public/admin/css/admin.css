@@ -4,7 +4,8 @@
    ========================================================= */
 
 :root {
-  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'DM Sans', 'Inter', system-ui, -apple-system, sans-serif;
   
   /* White Theme Color Palette */
   --bg-main: #f8fafc;
@@ -53,10 +54,20 @@ html, body {
   width: 100%;
   height: 100%;
   font-family: var(--font-sans);
+  font-size: 15px;
   background-color: var(--bg-main);
   color: var(--text-primary);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
 }
 
 /* =========================================================
